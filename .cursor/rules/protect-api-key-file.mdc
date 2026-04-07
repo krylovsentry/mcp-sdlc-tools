@@ -1,0 +1,11 @@
+---
+description: Prohibit agent access to local API key file
+globs: "**/.secrets/api-keys.json"
+alwaysApply: false
+---
+
+# Do Not Read Secrets File
+
+- Never open, read, print, or inspect `.secrets/api-keys.json` in any mode.
+- Never include this file in tool calls (`ReadFile`, shell commands, search output, logs, or code snippets).
+- If a task would require reading the file, stop and ask the user for a safe alternative (for example, using `model.apiKeyFile` path only without reading file contents).

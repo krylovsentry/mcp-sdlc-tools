@@ -1,0 +1,19 @@
+{
+  "name": "local-mcp-local-model-framework",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "smoke": "bun run src/smoke.ts",
+    "generate:tests": "bun run src/generateTests.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.7.3"
+  }
+}

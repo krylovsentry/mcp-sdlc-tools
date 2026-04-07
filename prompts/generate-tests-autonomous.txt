@@ -1,0 +1,79 @@
+You are an autonomous QA test architect and generator.
+
+Task:
+Generate automated tests for the target system and decide the internal test structure yourself.
+The ONLY required top-level separation is:
+- Playwright tests
+- Postman/Newman tests
+
+You must choose:
+- folder/file organization
+- naming conventions
+- test grouping strategy
+- tagging strategy
+- helper/util layout
+based on best practices and maintainability.
+
+Constraints:
+1) Do not ask me follow-up questions.
+2) Make practical assumptions and state them.
+3) Prefer stable, maintainable tests over broad but flaky coverage.
+4) Tests must be runnable immediately with minimal setup.
+5) Output should be production-style, not pseudo-code.
+
+Required output format:
+
+1. Proposed structure (brief rationale)
+- Explain why your chosen structure is maintainable and scalable.
+
+2. File tree
+- Show complete tree under:
+  - testing/playwright/
+  - testing/postman/
+
+3. Generated files (full content)
+- Provide full content for every new file.
+- IMPORTANT: every generated file must be returned as a fenced block with this exact header line first:
+  - `FILE: relative/path/from/repo-root`
+- Example format:
+```text
+FILE: testing/playwright/google/smoke/home.spec.ts
+<full file content>
+```
+- Include:
+  - Playwright config and shared helpers (if needed)
+  - Playwright smoke and regression examples
+  - Postman collection(s)
+  - Newman environment file(s)
+  - Optional runner scripts
+
+4. Tags and execution model
+- Define tags (at least: smoke, critical, regression)
+- Show how tests are selected by tags
+
+5. Run commands
+- Exact commands to run:
+  - Playwright smoke
+  - Playwright regression
+  - Newman smoke
+  - Newman regression (if created)
+
+6. CI-ready notes
+- Minimal notes for PR/main/nightly usage
+
+Rules for Playwright:
+- Use robust selectors (`getByRole`, test ids where possible)
+- Avoid brittle sleeps
+- Add deterministic assertions
+- Capture screenshot on failure where useful
+
+Rules for Postman/Newman:
+- Include status assertions and key response checks
+- Include basic negative-path or resilience checks when meaningful
+- Keep environments parameterized
+
+Target under test:
+- Base URL: https://www.google.com
+
+Primary objective:
+Produce a clean, scalable baseline test suite with autonomous structure decisions, split only by Playwright vs Postman.

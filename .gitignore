@@ -1,0 +1,6 @@
+.secrets/api-keys.json
+node_modules/
+.Playwright-mcp/
+playwright-structure.md
+testing/
+.idea/

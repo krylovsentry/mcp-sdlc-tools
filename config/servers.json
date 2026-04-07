@@ -1,0 +1,36 @@
+{
+  "model": {
+    "provider": "ollama",
+    "modelName": "deepseek-v3.1:671b-cloud",
+    "baseUrl": "https://ollama.com",
+    "apiKeyFile": "../.secrets/api-keys.json",
+    "timeoutMs": 120000
+  },
+  "mcp": {
+    "playwright": {
+      "enabled": true,
+      "transport": "stdio",
+      "stdio": {
+        "command": "bunx",
+        "args": ["@playwright/mcp"],
+        "env": {},
+        "cwd": "."
+      }
+    },
+    "postman": {
+      "enabled": true,
+      "transport": "stdio",
+      "stdio": {
+        "command": "bunx",
+        "args": ["mcp-postman"],
+        "env": {},
+        "cwd": "."
+      }
+    }
+  },
+  "agent": {
+    "maxIterations": 8,
+    "toolTimeoutMs": 45000,
+    "requestTimeoutMs": 120000
+  }
+}
