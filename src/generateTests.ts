@@ -44,8 +44,12 @@ async function main(): Promise<void> {
   console.error("[generate:tests] model output received, parsing file blocks");
   const files = extractFiles(modelOutput);
   if (files.length === 0) {
+    await persistRawOutput(modelOutput);
+    const preview = modelOutput.slice(0, 800).replace(/\s+/g, " ").trim();
+    console.error(`[generate:tests] output preview: ${preview || "<empty>"}`);
     throw new Error(
-      "No file blocks found in model output. Ask model to return fenced blocks with first line: FILE: relative/path"
+      "No file blocks found in model output. Ask model to return fenced blocks with first line: FILE: relative/path. " +
+      "Raw output saved to .artifacts/generate-tests-last-output.md"
     );
   }
 
@@ -59,6 +63,12 @@ async function main(): Promise<void> {
   }
 
   console.log(modelOutput);
+}
+
+async function persistRawOutput(raw: string): Promise<void> {
+  const outPath = ".artifacts/generate-tests-last-output.md";
+  await mkdir(dirname(outPath), { recursive: true });
+  await Bun.write(outPath, raw);
 }
 
 function toSafePath(path: string): string {
@@ -98,6 +108,27 @@ function extractFiles(raw: string): Array<{ path: string; content: string }> {
     const maybePath = match[1].trim();
     if (maybePath.includes("/") && !maybePath.startsWith("json") && !maybePath.startsWith("ts") && !maybePath.startsWith("md")) {
       files.push({ path: maybePath, content: match[2] });
+    }
+  }
+  if (files.length > 0) {
+    return dedupeByPath(files);
+  }
+
+  // Fallback: non-fenced sections that start with `FILE: path`
+  const plainPattern = /^FILE:\s*(.+)$/gm;
+  const headers: Array<{ path: string; index: number }> = [];
+  while ((match = plainPattern.exec(raw)) !== null) {
+    headers.push({ path: match[1].trim(), index: match.index });
+  }
+  for (let i = 0; i < headers.length; i += 1) {
+    const current = headers[i];
+    const next = headers[i + 1];
+    const start = raw.indexOf("\n", current.index);
+    const from = start === -1 ? current.index : start + 1;
+    const to = next ? next.index : raw.length;
+    const content = raw.slice(from, to).trim();
+    if (content) {
+      files.push({ path: current.path, content: `${content}\n` });
     }
   }
   return dedupeByPath(files);
