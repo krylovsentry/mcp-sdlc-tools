@@ -60,6 +60,7 @@ Each server (`playwright`, `postman`) supports:
 - `model.apiKeyFile` is supported. If set, config loader reads API key from file.
 - API key file can be plain text or JSON with `{ "apiKey": "..." }`.
 - Dev trace mode: set `DEV_TRACE=1` to log prompt input, model outputs, and tool outputs (truncated).
+- Model fetch trace mode: set `MODEL_TRACE=1` (or `DEV_TRACE=1`) to log model request start/response/error timing and parse mode.
 - `generate:tests` writes real files from model output when the model uses fenced blocks with `FILE: relative/path`.
 
 ## Troubleshooting
