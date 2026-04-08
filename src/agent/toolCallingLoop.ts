@@ -32,13 +32,39 @@ export async function runToolCallingLoop(
     { role: "system", content: systemPrompt() },
     { role: "user", content: userPrompt }
   ];
+  let lastText = "";
+  let lastToolSignature = "";
+  let sameToolSignatureCount = 0;
 
   for (let i = 0; i < config.agent.maxIterations; i += 1) {
     trace("loop.iteration", i + 1);
     const response = await provider.complete(messages, tools);
     trace("output.model.text", response.text ?? "");
     trace("output.model.toolCalls", response.toolCalls ?? []);
+    if (response.text && response.text.trim()) {
+      lastText = response.text.trim();
+    }
     if (response.toolCalls && response.toolCalls.length > 0) {
+      const toolSignature = JSON.stringify(
+        response.toolCalls.map((toolCall) => ({
+          name: toolCall.name,
+          arguments: toolCall.arguments
+        }))
+      );
+      if (toolSignature === lastToolSignature) {
+        sameToolSignatureCount += 1;
+      } else {
+        sameToolSignatureCount = 0;
+        lastToolSignature = toolSignature;
+      }
+      if (sameToolSignatureCount >= 2) {
+        const loopHint = "Model repeated same tool calls multiple times. Stopping to avoid infinite loop.";
+        trace("loop.break.repeatedToolCalls", loopHint);
+        if (lastText) {
+          return `${lastText}\n\n[Loop guard] ${loopHint}`;
+        }
+        return `[Loop guard] ${loopHint}`;
+      }
       for (const toolCall of response.toolCalls) {
         messages.push({
           role: "assistant",
@@ -75,5 +101,11 @@ export async function runToolCallingLoop(
     }
     return "No model response text was returned.";
   }
-  throw new Error("Agent loop exceeded max iterations.");
+  if (lastText) {
+    return `${lastText}\n\n[Loop guard] Reached max iterations (${config.agent.maxIterations}).`;
+  }
+  throw new Error(
+    `Agent loop exceeded max iterations (${config.agent.maxIterations}). ` +
+    "Enable DEV_TRACE=1 and MODEL_TRACE=1 to inspect repeated tool call patterns."
+  );
 }
