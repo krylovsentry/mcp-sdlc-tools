@@ -34,5 +34,8 @@
     "maxIterations": 8,
     "toolTimeoutMs": 45000,
     "requestTimeoutMs": 60000
+  },
+  "prReview": {
+    "outputPath": ".artifacts/pr-review-last.md"
   }
 }

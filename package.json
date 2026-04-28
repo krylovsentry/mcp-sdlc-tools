@@ -1,20 +1,34 @@
 {
-  "name": "local-mcp-local-model-framework",
+  "name": "mcp-sdlc-tools",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/krylovsentry/mcp-sdlc-tools.git"
+  },
   "scripts": {
     "start": "bun run src/index.ts",
     "test": "bun test tests",
     "smoke": "bun run src/smoke.ts",
     "generate:tests": "bun run src/generateTests.ts",
-    "model:test": "bun run src/modelTests.ts"
+    "scaffold:testing": "bun run src/scaffoldTesting.ts",
+    "test:playwright": "bun run --cwd testing/playwright test",
+    "test:postman": "bun run --cwd testing/postman test",
+    "model:test": "bun run src/modelTests.ts",
+    "review:pr": "bun run src/reviewPr.ts",
+    "dev:debug:agent": "cross-env DEV_TRACE=1 MODEL_TRACE=1 bun run src/index.ts",
+    "dev:debug:smoke": "cross-env DEV_TRACE=1 MODEL_TRACE=1 bun run src/smoke.ts",
+    "dev:debug:generate": "cross-env DEV_TRACE=1 MODEL_TRACE=1 bun run src/generateTests.ts",
+    "dev:debug:model:test": "cross-env DEV_TRACE=1 MODEL_TRACE=1 bun run src/modelTests.ts",
+    "dev:debug:review": "cross-env DEV_TRACE=1 MODEL_TRACE=1 bun run src/reviewPr.ts"
   },
   "dependencies": {
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",
+    "cross-env": "^10.1.0",
     "typescript": "^5.7.3"
   }
 }

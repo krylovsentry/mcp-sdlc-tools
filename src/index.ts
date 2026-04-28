@@ -19,6 +19,7 @@ async function main(): Promise<void> {
     throw new Error('Missing required "--prompt" argument.');
   }
   const disableTools = process.argv.includes("--disable-tools");
+  const testGeneration = process.argv.includes("--test-generation");
 
   const configPath = parseArg("--config") ?? "config/servers.json";
   console.error(`[app] loading config from ${configPath}`);
@@ -39,7 +40,10 @@ async function main(): Promise<void> {
       ? new OpenAiCompatProvider(config.model)
       : new OllamaProvider(config.model);
     console.error("[app] starting agent loop");
-    const answer = await runToolCallingLoop(provider, gateway, config, prompt, { disableTools: effectiveDisableTools });
+    const answer = await runToolCallingLoop(provider, gateway, config, prompt, {
+      disableTools: effectiveDisableTools,
+      testGeneration: testGeneration && effectiveDisableTools
+    });
     console.error("[app] agent loop completed");
     console.log(answer);
   } finally {

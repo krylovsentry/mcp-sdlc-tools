@@ -1,50 +1,122 @@
-# Local MCP + Local Model Framework
+# mcp-sdlc-tools
+
+Upstream: [github.com/krylovsentry/mcp-sdlc-tools](https://github.com/krylovsentry/mcp-sdlc-tools)
 
 Bun-based local framework that:
-- auto-launches local `MCP Playwright` and `MCP Postman` servers,
-- supports MCP over `stdio` and `SSE`,
-- supports local models via OpenAI-compatible `chat/completions` and Ollama.
 
-## Quick start
+- auto-launches local MCP servers for **Playwright** and **Postman**,
+- supports MCP over **stdio** and **SSE**,
+- supports local models via OpenAI-compatible `chat/completions` and **Ollama**.
 
-1. Install dependencies:
-   - `bun install`
-2. Copy config:
-   - `cp config/servers.example.json config/servers.json`
-3. Update model and server commands in `config/servers.json`.
-4. Run:
-   - `bun run start --prompt "Open a page and summarize the title"`
-5. Smoke-check MCP server wiring:
-   - `bun run smoke`
-6. Run test-generation prompt from file:
-   - `bun run generate:tests`
-   - dry run (parse only, no file writes): `bun run generate:tests -- --dry-run`
-   - Note: generation runs with `--disable-tools` so model focuses on writing `FILE:` blocks instead of calling Playwright/Postman tools.
-7. Run model-only checks one by one (no MCP tools):
-   - `bun run model:test`
-   - custom cases file: `bun run model:test -- --cases prompts/model-test-cases.json`
+## Prerequisites
+
+- [Bun](https://bun.sh/) installed and on your `PATH`.
+
+## Configure
+
+1. Install dependencies: `bun install`
+2. Copy config: `cp config/servers.example.json config/servers.json` (on Windows: `copy config\servers.example.json config\servers.json`)
+3. Edit `config/servers.json`: model endpoint, API keys, and MCP server commands.
+
+See [config/servers.example.json](config/servers.example.json) and the **Model providers** section below.
+
+**Command cheat sheet (all workflows):** [docs/commands-and-examples.md](docs/commands-and-examples.md)
+
+## Usage
+
+### Run the MCP agent (tools + model)
+
+Sends your prompt through the tool-calling loop with MCP servers as configured:
+
+```bash
+bun run start --prompt "Open a page and summarize the title"
+```
+
+Smoke-check that configured MCP servers start and respond:
+
+```bash
+bun run smoke
+```
+
+### Generate and run Playwright + Postman tests
+
+The repo ships **committed runner packages** under [`templates/testing/`](templates/testing/). Copy them into a local `testing/` tree (gitignored by default), install dependencies, then generate **content** files only (specs, collections, optional catalog).
+
+| Step | Command |
+|------|---------|
+| 1. Scaffold | `bun run scaffold:testing` |
+| 2. Install runners | `bun install --cwd testing/playwright` and `bun install --cwd testing/postman` (or `cd` into each and `bun install`) |
+| 3. (First time) Playwright browsers | `bunx playwright install` with cwd `testing/playwright`, or rely on Playwright’s install hints when you first run tests |
+| 4. Generate tests | `bun run generate:tests` (uses [`prompts/generate-tests-autonomous.txt`](prompts/generate-tests-autonomous.txt) and your `config/servers.json` model) |
+| 5. Run tests | `bun run test:playwright` and `bun run test:postman` |
+
+Useful flags for generation:
+
+- Dry run (parse model output, no writes): `bun run generate:tests -- --dry-run`
+- Only allow content paths (specs, collections, env JSON, `testing/catalog.json`): `bun run generate:tests -- --strict-test-paths` or `GENERATE_TESTS_STRICT=1`
+
+Generation runs with `--disable-tools --test-generation`: the model does **not** call MCP tools; it emits fenced blocks with a `FILE: relative/path` first line inside each block.
+
+Tune prompts and timeouts in [`prompts/generate-tests-autonomous.txt`](prompts/generate-tests-autonomous.txt) and `model.timeoutMs` in config if responses truncate.
+
+**Layout and commands** (tier folders, Newman, optional `catalog.json`): [docs/testing-executable-structure.md](docs/testing-executable-structure.md).
+
+### Model-only checks (no MCP tools)
+
+Runs canned prompts from a JSON file against the configured model (useful for regression-testing the model wiring):
+
+```bash
+bun run model:test
+bun run model:test -- --cases prompts/model-test-cases.json
+```
+
+### PR diff review (no MCP tools)
+
+Sends a unified diff to the model; prints or writes a review. Details: [docs/pr-review-flow.md](docs/pr-review-flow.md).
+
+```bash
+bun run review:pr -- --diff path/to/changes.diff
+git diff main...HEAD | bun run review:pr --
+```
+
+## CLI reference (npm scripts)
+
+| Script | Purpose |
+|--------|---------|
+| `start` | Agent with MCP tools (`src/index.ts`) |
+| `smoke` | MCP server smoke test |
+| `test` | Repo unit tests (`bun test tests`) |
+| `generate:tests` | Model-driven test file generation |
+| `scaffold:testing` | Copy `templates/testing/*` → `testing/` |
+| `test:playwright` | Run Playwright in `testing/playwright` |
+| `test:postman` | Run Newman stub/script in `testing/postman` |
+| `model:test` | Sequential model prompts from JSON cases |
+| `review:pr` | LLM review of a unified diff |
+| `dev:debug:agent` | Same as `start` with `DEV_TRACE=1` and `MODEL_TRACE=1` (cross-platform via `cross-env`) |
+| `dev:debug:smoke` | Same as `smoke` with tracing |
+| `dev:debug:generate` | Same as `generate:tests` with tracing |
+| `dev:debug:model:test` | Same as `model:test` with tracing |
+| `dev:debug:review` | Same as `review:pr` with tracing |
+
+Pass arguments after `--`, for example: `bun run dev:debug:agent -- --prompt "Hello"`.
 
 ## Model providers
 
 - `openaiCompat`: uses `POST {baseUrl}/v1/chat/completions`
 - `ollama`: uses `POST {baseUrl}/api/chat`
-- Model capability flags in config:
-  - `model.tools`: enable/disable MCP tool calls for this model (`true` / `false`)
-  - Deprecated alias: `model.supportsTools` — used only if `tools` is omitted; if both are set, **`tools` wins**
-  - `model.supportsStreaming`: documented capability flag for endpoint behavior
 
-### Ollama config examples
+Capability flags in `config/servers.json`:
 
-- Local Ollama:
-  - `cp config/servers.ollama-local.example.json config/servers.json`
-- Cloud Ollama (`deepseek-v3.1:671b-cloud`):
-  - `cp config/servers.ollama-cloud.example.json config/servers.json`
-  - set `model.baseUrl` to your real cloud endpoint
-  - create secrets file:
-    - `cp .secrets/api-keys.example.json .secrets/api-keys.json`
-  - put your real key in `.secrets/api-keys.json`
+- `model.tools`: enable or disable MCP tool calls (`true` / `false`)
+- Deprecated alias: `model.supportsTools` — used only if `tools` is omitted; if both are set, **`tools` wins**
+- `model.supportsStreaming`: documented capability flag for endpoint behavior
 
-Switch providers via:
+### Ollama examples
+
+- Local: `cp config/servers.ollama-local.example.json config/servers.json`
+- Cloud: `cp config/servers.ollama-cloud.example.json config/servers.json`, set `model.baseUrl`, then `cp .secrets/api-keys.example.json .secrets/api-keys.json` and add your key
+
+Switch provider:
 
 ```json
 {
@@ -54,36 +126,39 @@ Switch providers via:
 }
 ```
 
+## Test assets (Playwright + Postman)
+
+- Canonical layout and run examples: [docs/testing-executable-structure.md](docs/testing-executable-structure.md)
+- High-level SDLC / process context: [docs/autonomous-testing-sdlc.md](docs/autonomous-testing-sdlc.md)
+- Committed runners: [`templates/testing/`](templates/testing/) — copy into `testing/` with `bun run scaffold:testing`
+
 ## MCP server transport
 
 Each server (`playwright`, `postman`) supports:
-- `stdio` mode with `command` and `args`
-- `sse` mode with `url`
+
+- `stdio` with `command` and `args`
+- `sse` with `url`
+
+Architecture notes: [docs/tool-gateway-architecture.md](docs/tool-gateway-architecture.md)
 
 ## Notes
 
-- Server logs are written to stderr.
-- The agent loop has max iteration and timeout guards.
-- For stdio servers, avoid printing JSON noise to stdout in the server process.
-- `model.apiKeyFile` is supported. If set, config loader reads API key from file.
-- API key file can be plain text or JSON with `{ "apiKey": "..." }`.
-- Dev trace mode: set `DEV_TRACE=1` to log prompt input, model outputs, and tool outputs (truncated).
-- Model fetch trace mode: set `MODEL_TRACE=1` (or `DEV_TRACE=1`) to log model request start/response/error timing and parse mode.
-- `generate:tests` writes real files from model output when the model uses fenced blocks with `FILE: relative/path`.
-- `model:test` runs prompts sequentially and reports PASS/FAIL per case.
+- Server logs go to stderr.
+- The agent loop enforces max iterations and timeouts.
+- For stdio MCP servers, avoid printing raw JSON noise on stdout.
+- `model.apiKeyFile`: load API key from a file (plain text or JSON `{ "apiKey": "..." }`).
+- `DEV_TRACE=1`: log prompts, model output, and tool output (truncated).
+- `MODEL_TRACE=1` (or `DEV_TRACE=1`): log model request timing and parse mode.
+- Convenience: `dev:debug:*` scripts in `package.json` set both (see **CLI reference**).
+- `generate:tests` persists files when the model returns fenced code blocks whose first line is `FILE: path`. If the model adds an extra inner markdown code fence (e.g. `typescript` / `json` after the `FILE:` line), that wrapper is **stripped** before write so `.spec.ts` and JSON stay valid.
+- `review:pr`: optional default output path via `prReview.outputPath` in config when `--output` is omitted.
 
 ## Troubleshooting
 
-- Server fails to start:
-  - run configured command directly to verify dependencies.
-- `ENOENT ... uv_spawn 'npx'`:
-  - switch MCP server command to `bunx` in your config, or install Node.js to get `npx`.
-- `GET https://registry.npmjs.org/@modelcontextprotocol%2fserver-playwright - 404`:
-  - use Playwright MCP package `@playwright/mcp` in config args.
-- Tool not found:
-  - check `tools/list` support in MCP server and server startup success.
-- Model errors:
-  - verify `baseUrl`, `modelName`, and model service health.
-  - if model does not reliably support function/tool calling, set `model.tools` to `false`.
-- Bun command missing:
-  - install Bun and reopen terminal.
+- **MCP server fails to start:** run the configured `command` + `args` directly in a shell.
+- **`ENOENT ... uv_spawn 'npx'`:** use `bunx` in MCP server config, or install Node.js for `npx`.
+- **`@modelcontextprotocol/server-playwright` 404:** use `@playwright/mcp` in server args (see upstream Playwright MCP docs).
+- **Tool not found:** confirm the server starts and exposes `tools/list`.
+- **Model errors:** check `baseUrl`, `modelName`, and service health; set `model.tools` to `false` if the model does not support tools.
+- **`test:playwright` fails with syntax errors:** leftover or broken `*.spec.ts` under `testing/playwright/` (for example markdown pasted into a spec). Remove bad files or re-scaffold; `scaffold:testing` does not delete unknown files. Run a single file: `cd testing/playwright && bunx playwright test path/to/file.spec.ts`.
+- **Bun not found:** install Bun and reopen the terminal.

@@ -49,13 +49,20 @@ const agentConfigSchema = z.object({
   requestTimeoutMs: z.number().int().positive().default(60_000)
 });
 
+/** Optional PR review CLI defaults (stub provider writes review to stdout or a file). */
+const prReviewConfigSchema = z.object({
+  /** Default path for review text when `bun run review:pr` is used without `--output`. */
+  outputPath: z.string().optional()
+});
+
 export const appConfigSchema = z.object({
   model: modelConfigSchema,
   mcp: z.object({
     playwright: mcpServerSchema,
     postman: mcpServerSchema
   }),
-  agent: agentConfigSchema
+  agent: agentConfigSchema,
+  prReview: prReviewConfigSchema.optional()
 });
 
 export type AppConfig = z.infer<typeof appConfigSchema>;

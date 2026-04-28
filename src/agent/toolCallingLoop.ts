@@ -1,7 +1,7 @@
 import type { AppConfig } from "../config/schema";
 import type { McpToolGateway } from "../mcp/toolGateway";
 import type { ChatMessage } from "../types/protocol";
-import { systemPrompt } from "./prompting";
+import { systemPrompt, testGenerationSystemPrompt } from "./prompting";
 import type { LlmProvider } from "../providers/openaiCompatProvider";
 
 const DEV_TRACE = Bun.env.DEV_TRACE === "1";
@@ -24,13 +24,16 @@ export async function runToolCallingLoop(
   toolGateway: McpToolGateway,
   config: AppConfig,
   userPrompt: string,
-  options?: { disableTools?: boolean }
+  options?: { disableTools?: boolean; testGeneration?: boolean }
 ): Promise<string> {
   trace("input.userPrompt", userPrompt);
   const tools = options?.disableTools ? [] : await toolGateway.refreshToolIndex();
   trace("input.tools", tools.map((tool) => tool.name));
+  const systemContent = options?.disableTools && options?.testGeneration
+    ? testGenerationSystemPrompt()
+    : systemPrompt();
   const messages: ChatMessage[] = [
-    { role: "system", content: systemPrompt() },
+    { role: "system", content: systemContent },
     { role: "user", content: userPrompt }
   ];
   let lastText = "";

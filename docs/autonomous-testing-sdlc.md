@@ -1,6 +1,11 @@
 # Autonomous Testing SDLC (Playwright + Newman via MCP Tooling)
 
+## Using this repository
+
+Concrete commands (scaffold, `generate:tests`, runners) live in the [README](../README.md#usage) and [commands-and-examples.md](commands-and-examples.md). Directory layout, Newman, and optional `catalog.json` are documented in [testing-executable-structure.md](testing-executable-structure.md). Committed Playwright and Postman packages are under [`templates/testing/`](../templates/testing/).
+
 ## Purpose
+
 Define how to build, run, and maintain UI and API tests when there are no dedicated manual test authors, using tools to generate and stabilize tests automatically.
 
 ## Scope

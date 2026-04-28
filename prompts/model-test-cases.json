@@ -1,0 +1,14 @@
+[
+  {
+    "name": "short-hello",
+    "prompt": "Reply with exactly: HELLO_OK"
+  },
+  {
+    "name": "json-shape",
+    "prompt": "Return only compact JSON with keys status and value where status is \"ok\" and value is 42."
+  },
+  {
+    "name": "russian-text",
+    "prompt": "Ответь одной короткой фразой на русском о погоде."
+  }
+]

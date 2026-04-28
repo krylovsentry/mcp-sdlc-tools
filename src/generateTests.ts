@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { dirname, isAbsolute, normalize } from "node:path";
+import { sanitizeGeneratedContent } from "./generateTestsSanitize";
 
 function parseArg(name: string): string | undefined {
   const idx = process.argv.indexOf(name);
@@ -14,6 +15,8 @@ async function main(): Promise<void> {
   const promptPath = parseArg("--prompt-file") ?? "prompts/generate-tests-autonomous.txt";
   const configPath = parseArg("--config") ?? "config/servers.json";
   const dryRun = process.argv.includes("--dry-run");
+  const strictTestPaths =
+    process.argv.includes("--strict-test-paths") || process.env.GENERATE_TESTS_STRICT === "1";
   const promptText = await Bun.file(promptPath).text();
   if (!promptText.trim()) {
     throw new Error(`Prompt file is empty: ${promptPath}`);
@@ -21,7 +24,7 @@ async function main(): Promise<void> {
 
   const child = spawn(
     process.execPath,
-    ["run", "src/index.ts", "--config", configPath, "--disable-tools", "--prompt", promptText],
+    ["run", "src/index.ts", "--config", configPath, "--disable-tools", "--test-generation", "--prompt", promptText],
     { stdio: ["ignore", "pipe", "inherit"], shell: false }
   );
 
@@ -55,11 +58,16 @@ async function main(): Promise<void> {
 
   for (const file of files) {
     const safePath = toSafePath(file.path);
+    assertAllowedGenerationPath(safePath, strictTestPaths);
+    const { text: body, stripped } = sanitizeGeneratedContent(safePath, file.content);
+    if (stripped) {
+      console.error(`[generate:tests] stripped inner markdown fence from ${safePath}`);
+    }
     if (!dryRun) {
       await mkdir(dirname(safePath), { recursive: true });
-      await Bun.write(safePath, file.content);
+      await Bun.write(safePath, body);
     }
-    console.error(`[generate:tests] ${dryRun ? "would write" : "wrote"} ${safePath} (${file.content.length} bytes)`);
+    console.error(`[generate:tests] ${dryRun ? "would write" : "wrote"} ${safePath} (${body.length} bytes)`);
   }
 
   console.log(modelOutput);
@@ -84,6 +92,41 @@ function toSafePath(path: string): string {
     throw new Error(`Generated path not allowed (must start with testing/ or docs/): ${path}`);
   }
   return clean;
+}
+
+/** When strict: only content files under the predefined runner layout (no package.json, configs, lockfiles). */
+function assertAllowedGenerationPath(clean: string, strict: boolean): void {
+  if (!strict) {
+    return;
+  }
+  if (clean.startsWith("docs/")) {
+    throw new Error(`Strict mode: path not allowed (use testing/ only): ${clean}`);
+  }
+  if (isAllowedStrictGenerationPath(clean)) {
+    return;
+  }
+  throw new Error(
+    `Strict mode: path not allowed (specs, helpers, collections, environments, or testing/catalog.json): ${clean}`
+  );
+}
+
+function isAllowedStrictGenerationPath(clean: string): boolean {
+  if (clean === "testing/catalog.json") {
+    return true;
+  }
+  if (clean.startsWith("testing/postman/collections/") && clean.endsWith(".json")) {
+    return true;
+  }
+  if (clean.startsWith("testing/postman/environments/") && clean.endsWith(".json")) {
+    return true;
+  }
+  if (/^testing\/playwright\/(smoke|critical|regression)\/.+\.spec\.ts$/.test(clean)) {
+    return true;
+  }
+  if (/^testing\/playwright\/helpers\/.+\.ts$/.test(clean)) {
+    return true;
+  }
+  return false;
 }
 
 function extractFiles(raw: string): Array<{ path: string; content: string }> {
