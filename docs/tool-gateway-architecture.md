@@ -15,11 +15,9 @@ flowchart LR
 
   serverManager --> playwrightClient[PlaywrightClient]
   serverManager --> postmanClient[PostmanClient]
-  serverManager --> openapiClient[OpenApiClient_optional]
 
   playwrightClient --> transports[StdioTransport_or_SseTransport]
   postmanClient --> transports
-  openapiClient --> transports
 
   transports --> mcpServers[McpServers]
 
@@ -53,7 +51,7 @@ flowchart LR
   - Applies timeout and error propagation.
 
 - `MCP Servers`
-  - Execute real tool actions (browser automation, API collection runs, optional OpenAPI wrappers).
+  - Execute real tool actions (browser automation and Postman MCP operations).
 
 ## Runtime Sequence
 
@@ -63,3 +61,22 @@ flowchart LR
 4. Gateway resolves the namespaced tool and issues `tools/call`.
 5. Tool result is injected back into loop context.
 6. Loop repeats until model produces final response.
+
+## OpenAPI/Swagger Collection Generation (Offline)
+
+OpenAPI/Swagger collection generation is intentionally separate from the MCP tool gateway path:
+
+- Entry point: `bun run openapi:postman`
+- Implementation: `src/openapiToPostman.ts` + `src/openapiToPostman.cli.ts`
+- Converter: `openapi-to-postmanv2` (schemaFaker on/off)
+- Outputs: API collection, optional test-data collection, optional fixtures collection (POST/PUT/PATCH filtered)
+
+```mermaid
+flowchart LR
+  specInput[OpenAPI_or_SwaggerSpec] --> converterApi["Converter schemaFaker:false"]
+  specInput --> converterData["Converter schemaFaker:true"]
+  converterApi --> apiOutput[ApiCollectionJson]
+  converterData --> testDataOutput[TestDataCollectionJson]
+  converterData --> fixturesFilter[FilterPostPutPatch]
+  fixturesFilter --> fixturesOutput[FixturesCollectionJson]
+```

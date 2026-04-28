@@ -118,6 +118,34 @@ $env:BASE_URL="https://example.com"; bun run test:playwright
 
 Directory layout and Newman details: [testing-executable-structure.md](testing-executable-structure.md).
 
+## Generate Postman collections from OpenAPI/Swagger
+
+Deterministic conversion without the LLM generation path:
+
+```bash
+bun run openapi:postman -- --spec path/to/openapi.yaml --out testing/postman/collections/service-api.collection.json
+```
+
+Generate API + test-data + fixtures collections:
+
+```bash
+bun run openapi:postman -- \
+  --spec path/to/openapi.yaml \
+  --out testing/postman/collections/service-api.collection.json \
+  --testdata-out testing/postman/collections/service-testdata.collection.json \
+  --fixtures-out testing/postman/collections/service-fixtures.collection.json
+```
+
+Pass converter options (repeatable):
+
+```bash
+bun run openapi:postman -- \
+  --spec path/to/openapi.yaml \
+  --out testing/postman/collections/service-api.collection.json \
+  --converter-option folderStrategy=Tags \
+  --converter-option requestNameSource=operationId
+```
+
 ## Model-only regression checks (`model:test`)
 
 No MCP tools; runs canned prompts from a JSON file:
