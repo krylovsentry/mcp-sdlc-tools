@@ -10,8 +10,13 @@
   "scripts": {
     "start": "bun run src/index.ts",
     "test": "bun test tests",
+    "test:coverage": "bun test tests --coverage --coverage-reporter=lcov --coverage-reporter=text",
+    "typecheck": "tsc --noEmit",
+    "lint:biome": "biome check .",
+    "lint": "bun run typecheck",
     "smoke": "bun run src/smoke.ts",
     "generate:tests": "bun run src/generateTests.ts",
+    "openapi:postman": "bun run src/openapiToPostman.cli.ts",
     "scaffold:testing": "bun run src/scaffoldTesting.ts",
     "test:playwright": "bun run --cwd testing/playwright test",
     "test:postman": "bun run --cwd testing/postman test",
@@ -24,9 +29,11 @@
     "dev:debug:review": "cross-env DEV_TRACE=1 MODEL_TRACE=1 bun run src/reviewPr.ts"
   },
   "dependencies": {
+    "openapi-to-postmanv2": "^6.0.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.13",
     "@types/bun": "^1.2.0",
     "cross-env": "^10.1.0",
     "typescript": "^5.7.3"

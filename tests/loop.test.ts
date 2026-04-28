@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { runToolCallingLoop } from "../src/agent/toolCallingLoop";
 import type { AppConfig } from "../src/config/schema";
 import type { ModelResponse } from "../src/types/protocol";
+import type { McpToolGateway } from "../src/mcp/toolGateway";
 
 describe("tool calling loop", () => {
   test("executes tool call and returns final answer", async () => {
@@ -10,6 +11,8 @@ describe("tool calling loop", () => {
         provider: "openaiCompat",
         modelName: "model",
         baseUrl: "http://localhost:1234",
+        tools: true,
+        supportsStreaming: true,
         timeoutMs: 1_000
       },
       mcp: {
@@ -57,7 +60,7 @@ describe("tool calling loop", () => {
       async callTool() {
         return { content: "ok" };
       }
-    };
+    } as unknown as McpToolGateway;
 
     const answer = await runToolCallingLoop(provider, toolGateway, config, "Go to example.com");
     expect(answer).toBe("Navigation complete.");

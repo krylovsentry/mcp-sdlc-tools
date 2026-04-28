@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelResponse, ToolCall } from "../types/protocol";
+import type { ChatMessage, JsonObject, JsonValue, ModelResponse, ToolCall } from "../types/protocol";
 
 export interface LlmProvider {
   complete(messages: ChatMessage[], tools: Array<{ name: string; description?: string; inputSchema?: unknown }>): Promise<ModelResponse>;
@@ -177,15 +177,19 @@ export class OpenAiCompatProvider implements LlmProvider {
     };
   }
 
-  private parseArguments(raw: unknown): Record<string, unknown> {
+  private parseArguments(raw: unknown): JsonObject {
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      return raw as JsonObject;
+    }
     if (typeof raw !== "string") {
-      if (raw && typeof raw === "object") {
-        return raw as Record<string, unknown>;
-      }
       return {};
     }
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw) as JsonValue;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as JsonObject;
+      }
+      return {};
     } catch {
       return {};
     }

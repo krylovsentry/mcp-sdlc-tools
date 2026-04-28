@@ -61,6 +61,29 @@ Tune prompts and timeouts in [`prompts/generate-tests-autonomous.txt`](prompts/g
 
 **Layout and commands** (tier folders, Newman, optional `catalog.json`): [docs/testing-executable-structure.md](docs/testing-executable-structure.md).
 
+### Generate Postman collections from OpenAPI/Swagger
+
+Use deterministic OpenAPI conversion when you want collections directly from an API spec (without LLM generation):
+
+```bash
+bun run openapi:postman -- --spec path/to/openapi.yaml --out testing/postman/collections/service-api.collection.json
+```
+
+Generate additional collections for test data and fixture seeding:
+
+```bash
+bun run openapi:postman -- \
+  --spec path/to/openapi.yaml \
+  --out testing/postman/collections/service-api.collection.json \
+  --testdata-out testing/postman/collections/service-testdata.collection.json \
+  --fixtures-out testing/postman/collections/service-fixtures.collection.json
+```
+
+Useful options:
+
+- `--converter-option key=value` (repeatable) to pass options to `openapi-to-postmanv2` (example: `--converter-option folderStrategy=Tags`)
+- `--dry-run` to run conversion without writing files
+
 ### Model-only checks (no MCP tools)
 
 Runs canned prompts from a JSON file against the configured model (useful for regression-testing the model wiring):
@@ -87,6 +110,7 @@ git diff main...HEAD | bun run review:pr --
 | `smoke` | MCP server smoke test |
 | `test` | Repo unit tests (`bun test tests`) |
 | `generate:tests` | Model-driven test file generation |
+| `openapi:postman` | Convert OpenAPI/Swagger specs into Postman collections |
 | `scaffold:testing` | Copy `templates/testing/*` → `testing/` |
 | `test:playwright` | Run Playwright in `testing/playwright` |
 | `test:postman` | Run Newman stub/script in `testing/postman` |

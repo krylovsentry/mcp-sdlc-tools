@@ -1,1 +1,10 @@
-# Bun config (optional test hooks can be added here)
+[test]
+coverageSkipTestFiles = true
+coveragePathIgnorePatterns = [
+  "src/index.ts",
+  "src/smoke.ts",
+  "src/generateTests.ts",
+  "src/scaffoldTesting.ts",
+  "src/modelTests.ts",
+  "src/reviewPr.ts"
+]
