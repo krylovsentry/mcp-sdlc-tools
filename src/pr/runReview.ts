@@ -17,7 +17,13 @@ export async function runPrReview(
   const messages = reviewMessages(artifact);
   const userChars = messages.find((message) => message.role === "user")?.content.length ?? 0;
   console.error(`[review:pr] prompt.ready messages=${messages.length} userChars=${userChars}`);
+  console.error("[review:pr] llm.request.start");
+  const llmStartedAt = Date.now();
   const res = await llm.complete(messages, []);
+  const llmElapsedMs = Date.now() - llmStartedAt;
+  console.error(
+    `[review:pr] llm.request.done elapsedMs=${llmElapsedMs} textChars=${res.text?.length ?? 0} toolCalls=${res.toolCalls?.length ?? 0}`
+  );
   const summary = (res.text ?? "").trim();
   if (!summary) {
     console.error(
