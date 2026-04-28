@@ -27,8 +27,8 @@ jobs:
       - name: Lint
         run: bun run lint
 
-      - name: Run tests with coverage
-        run: bun run test:coverage
+      - name: Run tests with coverage gate (80%)
+        run: bun run test:coverage:gate
 
       - name: Upload coverage to Coveralls
         if: always()

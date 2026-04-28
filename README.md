@@ -103,6 +103,19 @@ bun run review:pr -- --diff path/to/changes.diff
 git diff main...HEAD | bun run review:pr --
 ```
 
+Source Code API v2 provider (fetches PR diff from API using OpenAPI endpoints):
+
+```bash
+bun run review:pr -- \
+  --provider sourceCodeApi \
+  --base-url https://scm.example.com/api/v2 \
+  --project-key PROJECT \
+  --repo-name my-repo \
+  --pr-id 42 \
+  --token "$SOURCE_CODE_API_TOKEN" \
+  --title "PR #42"
+```
+
 ## CLI reference (npm scripts)
 
 | Script | Purpose |

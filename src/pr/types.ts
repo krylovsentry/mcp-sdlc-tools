@@ -4,7 +4,13 @@
  */
 
 export type PrRef =
-  | { provider: "stub" };
+  | { provider: "stub" }
+  | {
+      provider: "sourceCodeApi";
+      projectKey: string;
+      repoName: string;
+      prId: number;
+    };
 
 export interface PrDiffArtifact {
   unifiedDiff: string;

@@ -3,6 +3,8 @@ import { OpenAiCompatProvider } from "./providers/openaiCompatProvider";
 import { OllamaProvider } from "./providers/ollamaProvider";
 import { runPrReview } from "./pr/runReview";
 import { StubPullRequestProvider } from "./pr/stubPrProvider";
+import { SourceCodeApiPullRequestProvider } from "./pr/sourceCodeApiProvider";
+import type { PrRef } from "./pr/types";
 
 function parseArg(name: string): string | undefined {
   const idx = process.argv.indexOf(name);
@@ -22,36 +24,65 @@ async function readStdinText(): Promise<string> {
 
 async function main(): Promise<void> {
   const configPath = parseArg("--config") ?? "config/servers.json";
+  const providerName = parseArg("--provider") ?? "stub";
   const diffPath = parseArg("--diff");
   const cliOutput = parseArg("--output");
   const title = parseArg("--title");
+  const baseUrl = parseArg("--base-url");
+  const projectKey = parseArg("--project-key");
+  const repoName = parseArg("--repo-name");
+  const prIdRaw = parseArg("--pr-id");
+  const token = parseArg("--token") ?? process.env.SOURCE_CODE_API_TOKEN;
 
   const config = await loadConfig(configPath);
   const llm = config.model.provider === "openaiCompat"
     ? new OpenAiCompatProvider(config.model)
     : new OllamaProvider(config.model);
 
-  let unifiedDiff: string;
-  if (diffPath) {
-    unifiedDiff = await Bun.file(diffPath).text();
-  } else {
-    unifiedDiff = await readStdinText();
-  }
-  if (!unifiedDiff.trim()) {
-    throw new Error("Diff is empty. Pass --diff path/to/patch.diff or pipe a unified diff on stdin.");
-  }
-
   const outputPath = cliOutput ?? config.prReview?.outputPath;
-  const pr = new StubPullRequestProvider(
-    { unifiedDiff, title: title ?? undefined },
-    outputPath
-  );
+  let prRef: PrRef;
+  let prProvider: StubPullRequestProvider | SourceCodeApiPullRequestProvider;
+
+  if (providerName === "sourceCodeApi") {
+    if (!baseUrl || !projectKey || !repoName || !prIdRaw) {
+      throw new Error(
+        "Missing sourceCodeApi args. Required: --base-url --project-key --repo-name --pr-id. " +
+        "Optional: --token (or SOURCE_CODE_API_TOKEN env), --output."
+      );
+    }
+    const prId = Number(prIdRaw);
+    if (!Number.isFinite(prId)) {
+      throw new Error(`Invalid --pr-id: ${prIdRaw}`);
+    }
+    prRef = {
+      provider: "sourceCodeApi",
+      projectKey,
+      repoName,
+      prId
+    };
+    prProvider = new SourceCodeApiPullRequestProvider(baseUrl, token, outputPath);
+  } else {
+    let unifiedDiff: string;
+    if (diffPath) {
+      unifiedDiff = await Bun.file(diffPath).text();
+    } else {
+      unifiedDiff = await readStdinText();
+    }
+    if (!unifiedDiff.trim()) {
+      throw new Error("Diff is empty. Pass --diff path/to/patch.diff or pipe a unified diff on stdin.");
+    }
+    prRef = { provider: "stub" };
+    prProvider = new StubPullRequestProvider(
+      { unifiedDiff, title: title ?? undefined },
+      outputPath
+    );
+  }
 
   console.error(
-    `[review:pr] provider=${config.model.provider} model=${config.model.modelName} output=${outputPath ?? "stdout"}`
+    `[review:pr] llm=${config.model.provider} model=${config.model.modelName} prProvider=${providerName} output=${outputPath ?? "stdout"}`
   );
 
-  await runPrReview(llm, pr, { provider: "stub" });
+  await runPrReview(llm, prProvider, prRef);
 }
 
 main().catch((error) => {
