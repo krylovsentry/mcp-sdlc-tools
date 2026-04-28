@@ -82,13 +82,23 @@ export class OpenAiCompatProvider implements LlmProvider {
   }
 
   private async parseJsonResponse(res: Response): Promise<ModelResponse> {
+    const rawBody = await res.text();
+    trace(`response.json.rawChars=${rawBody.length}`);
     let data: any;
     try {
-      data = await res.json();
+      data = JSON.parse(rawBody);
     } catch (error) {
+      const preview = rawBody.length > 500 ? `${rawBody.slice(0, 500)}...<truncated>` : rawBody;
+      console.error(
+        `[model:openaiCompat] response.json.parse_failed status=${res.status} contentType=${res.headers.get("content-type") ?? "unknown"} preview=${preview}`
+      );
       throw new Error(`Failed to parse JSON model response: ${error instanceof Error ? error.message : String(error)}`);
     }
     const choice = data.choices?.[0]?.message;
+    if (!choice) {
+      const keys = data && typeof data === "object" ? Object.keys(data).slice(0, 20).join(",") : typeof data;
+      trace(`response.json.unexpected_shape topLevelKeys=${keys}`);
+    }
     const toolCalls = (choice?.tool_calls ?? []).map((call: any): ToolCall => ({
       id: call.id,
       name: call.function?.name,
@@ -132,7 +142,9 @@ export class OpenAiCompatProvider implements LlmProvider {
         let parsed: any;
         try {
           parsed = JSON.parse(payload);
-        } catch {
+        } catch (error) {
+          const preview = payload.length > 300 ? `${payload.slice(0, 300)}...<truncated>` : payload;
+          trace(`stream.chunk.parse_failed reason=${error instanceof Error ? error.message : String(error)} preview=${preview}`);
           continue;
         }
         const delta = parsed.choices?.[0]?.delta;
@@ -189,8 +201,11 @@ export class OpenAiCompatProvider implements LlmProvider {
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         return parsed as JsonObject;
       }
+      trace("tool.arguments.non_object_json");
       return {};
     } catch {
+      const preview = raw.length > 200 ? `${raw.slice(0, 200)}...<truncated>` : raw;
+      trace(`tool.arguments.parse_failed preview=${preview}`);
       return {};
     }
   }

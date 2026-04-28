@@ -61,6 +61,9 @@ async function main(): Promise<void> {
       prId
     };
     prProvider = new SourceCodeApiPullRequestProvider(baseUrl, token, outputPath);
+    console.error(
+      `[review:pr] sourceCodeApi target=${baseUrl} project=${projectKey} repo=${repoName} prId=${prId} tokenProvided=${token ? "yes" : "no"}`
+    );
   } else {
     let unifiedDiff: string;
     if (diffPath) {
@@ -71,6 +74,7 @@ async function main(): Promise<void> {
     if (!unifiedDiff.trim()) {
       throw new Error("Diff is empty. Pass --diff path/to/patch.diff or pipe a unified diff on stdin.");
     }
+    console.error(`[review:pr] stub.diff chars=${unifiedDiff.length} source=${diffPath ? "file" : "stdin"}`);
     prRef = { provider: "stub" };
     prProvider = new StubPullRequestProvider(
       { unifiedDiff, title: title ?? undefined },
