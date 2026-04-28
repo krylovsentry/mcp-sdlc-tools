@@ -1,6 +1,6 @@
 # mcp-sdlc-tools
 
-[![Coverage](https://codecov.io/gh/krylovsentry/mcp-sdlc-tools/branch/main/graph/badge.svg)](https://codecov.io/gh/krylovsentry/mcp-sdlc-tools)
+[![Coverage Status](https://coveralls.io/repos/github/krylovsentry/mcp-sdlc-tools/badge.svg?branch=main)](https://coveralls.io/github/krylovsentry/mcp-sdlc-tools?branch=main)
 
 
 Bun-based local framework that:

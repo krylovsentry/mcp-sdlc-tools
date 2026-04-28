@@ -30,12 +30,12 @@ jobs:
       - name: Run tests with coverage
         run: bun run test:coverage
 
-      - name: Upload coverage to Codecov
+      - name: Upload coverage to Coveralls
         if: always()
-        uses: codecov/codecov-action@v5
+        uses: coverallsapp/github-action@v2
         with:
-          files: coverage/lcov.info
-          fail_ci_if_error: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage/lcov.info
 
       - name: Upload coverage artifact
         if: always()
