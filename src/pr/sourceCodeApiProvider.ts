@@ -12,6 +12,13 @@ function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}${path}`;
 }
 
+function encodePathPreservingSlashes(value: string): string {
+  return value
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+}
+
 function decodeMaybeBase64(value: string): string {
   try {
     const decoded = Buffer.from(value, "base64").toString("utf-8");
@@ -54,7 +61,9 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
   }
 
   private async fetchSourceCodeApiDiff(ref: SourceCodeApiRef): Promise<PrDiffArtifact> {
-    const path = `/projects/${encodeURIComponent(ref.projectKey)}/repos/${encodeURIComponent(ref.repoName)}/pull-requests/${ref.prId}/diff?binary=false&contextLines=3`;
+    const projectPath = encodePathPreservingSlashes(ref.projectKey);
+    const repoPath = encodePathPreservingSlashes(ref.repoName);
+    const path = `/projects/${projectPath}/repos/${repoPath}/pull-requests/${ref.prId}/diff?binary=false&contextLines=3`;
     const headers: Record<string, string> = {
       Accept: "application/json"
     };

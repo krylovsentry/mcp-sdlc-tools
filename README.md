@@ -116,6 +116,36 @@ bun run review:pr -- \
   --title "PR #42"
 ```
 
+Linux / macOS with debug tracing:
+
+```bash
+DEV_TRACE=1 MODEL_TRACE=1 SOURCE_CODE_API_TOKEN="your-token" \
+bun run review:pr -- \
+  --provider sourceCodeApi \
+  --base-url https://scm.example.com/api/v2 \
+  --project-key PROJECT \
+  --repo-name my-repo \
+  --pr-id 42 \
+  --title "PR #42" \
+  --output /tmp/pr-review.md
+```
+
+Windows PowerShell with debug tracing:
+
+```powershell
+$env:DEV_TRACE="1"
+$env:MODEL_TRACE="1"
+$env:SOURCE_CODE_API_TOKEN="your-token"
+bun run review:pr -- `
+  --provider sourceCodeApi `
+  --base-url https://scm.example.com/api/v2 `
+  --project-key PROJECT `
+  --repo-name my-repo `
+  --pr-id 42 `
+  --title "PR #42" `
+  --output "$env:TEMP\pr-review.md"
+```
+
 ## CLI reference (npm scripts)
 
 | Script | Purpose |
