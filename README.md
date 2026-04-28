@@ -1,8 +1,7 @@
 # mcp-sdlc-tools
 
-[![Coverage](https://img.shields.io/badge/coverage-lcov%20in%20CI-blue)](https://github.com/krylovsentry/mcp-sdlc-tools/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/krylovsentry/mcp-sdlc-tools/branch/main/graph/badge.svg)](https://codecov.io/gh/krylovsentry/mcp-sdlc-tools)
 
-Upstream: [github.com/krylovsentry/mcp-sdlc-tools](https://github.com/krylovsentry/mcp-sdlc-tools)
 
 Bun-based local framework that:
 
