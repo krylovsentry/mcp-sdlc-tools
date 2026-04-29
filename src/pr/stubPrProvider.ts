@@ -16,8 +16,12 @@ export class StubPullRequestProvider implements PullRequestProvider {
   async postComment(body: string): Promise<void> {
     if (this.outputPath) {
       await Bun.write(this.outputPath, body);
+      console.error(
+        `[review:pr] output.written path=${JSON.stringify(this.outputPath)} chars=${body.length}`
+      );
       return;
     }
+    console.error(`[review:pr] output.stdout chars=${body.length}`);
     console.log(body);
   }
 }

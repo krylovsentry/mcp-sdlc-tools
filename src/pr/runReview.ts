@@ -1,6 +1,20 @@
 import type { LlmProvider } from "../providers/openaiCompatProvider";
+import { diffLineStats } from "./diffStats";
 import type { PrRef, PullRequestProvider } from "./types";
 import { reviewMessages } from "./reviewPrompt";
+
+function firstLinePreview(text: string, maxChars = 140): string {
+  const line =
+    text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => l.length > 0) ?? "";
+  const collapsed = line.replace(/\s+/g, " ").trim();
+  if (collapsed.length <= maxChars) {
+    return collapsed;
+  }
+  return `${collapsed.slice(0, Math.max(0, maxChars - 1))}…`;
+}
 
 export async function runPrReview(
   llm: LlmProvider,
@@ -8,8 +22,10 @@ export async function runPrReview(
   ref: PrRef
 ): Promise<void> {
   const artifact = await pr.fetchDiff(ref);
+  const { files, additions, deletions } = diffLineStats(artifact.unifiedDiff);
+  const titleLabel = artifact.title?.trim() || "(no title)";
   console.error(
-    `[review:pr] diff.loaded chars=${artifact.unifiedDiff.length} title=${artifact.title?.trim() || "(no title)"}`
+    `[review:pr] diff.loaded chars=${artifact.unifiedDiff.length} files=${files} +${additions} -${deletions} title=${JSON.stringify(titleLabel)}`
   );
   if (!artifact.unifiedDiff.trim()) {
     throw new Error("Pull request provider returned an empty diff");
@@ -31,6 +47,8 @@ export async function runPrReview(
     );
     throw new Error("Model returned empty review text");
   }
-  console.error(`[review:pr] model.summary chars=${summary.length}`);
+  console.error(
+    `[review:pr] review.ready chars=${summary.length} preview=${JSON.stringify(firstLinePreview(summary))}`
+  );
   await pr.postComment(summary);
 }

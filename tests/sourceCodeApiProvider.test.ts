@@ -11,11 +11,16 @@ describe("SourceCodeApiPullRequestProvider", () => {
     const encoded = Buffer.from(diff, "utf-8").toString("base64");
 
     const previousFetch = globalThis.fetch;
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ data: { content: encoded } }), {
-        status: 200,
-        headers: { "content-type": "application/json" }
-      })) as unknown as typeof fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/diff")) {
+        return new Response(JSON.stringify({ data: { content: encoded } }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
 
     try {
       const artifact = await provider.fetchDiff({
@@ -30,15 +35,54 @@ describe("SourceCodeApiPullRequestProvider", () => {
     }
   });
 
+  test("fetchDiff merges title when metadata endpoint returns JSON title", async () => {
+    const provider = new SourceCodeApiPullRequestProvider("https://scm.example.com", "token");
+    const diff = "diff --git a/a.ts b/a.ts\n+hello\n";
+    const encoded = Buffer.from(diff, "utf-8").toString("base64");
+
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/diff")) {
+        return new Response(JSON.stringify({ data: { content: encoded } }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response(JSON.stringify({ data: { title: "Fix widget" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }) as unknown as typeof fetch;
+
+    try {
+      const artifact = await provider.fetchDiff({
+        provider: "sourceCodeApi",
+        projectKey: "PROJ",
+        repoName: "repo",
+        prId: 42
+      });
+      expect(artifact.title).toBe("Fix widget");
+      expect(artifact.unifiedDiff).toBe(diff);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   test("fetchDiff throws when data.content is missing", async () => {
     const provider = new SourceCodeApiPullRequestProvider("https://scm.example.com");
 
     const previousFetch = globalThis.fetch;
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ data: {} }), {
-        status: 200,
-        headers: { "content-type": "application/json" }
-      })) as unknown as typeof fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/diff")) {
+        return new Response(JSON.stringify({ data: {} }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
 
     try {
       await expect(
