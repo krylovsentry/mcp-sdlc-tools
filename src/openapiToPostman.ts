@@ -1,6 +1,6 @@
-import { createRequire } from "node:module";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import { convert as openapiConvert } from "openapi-to-postmanv2";
 
 type ConverterInput =
   | { type: "file"; data: string }
@@ -36,8 +36,7 @@ type ConvertFn = (
   callback: (error: unknown, result: ConverterResult) => void
 ) => void;
 
-const require = createRequire(import.meta.url);
-const converter = require("openapi-to-postmanv2") as { convert: ConvertFn };
+const converter: { convert: ConvertFn } = { convert: openapiConvert as ConvertFn };
 
 function parseArg(argv: string[], name: string): string | undefined {
   const idx = argv.indexOf(name);
