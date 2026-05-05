@@ -103,11 +103,59 @@ describe("SourceCodeApiPullRequestProvider", () => {
     try {
       const outputPath = join(tempRoot, "review.txt");
       const provider = new SourceCodeApiPullRequestProvider("https://scm.example.com", undefined, outputPath);
-      await provider.postComment("review body");
+      await provider.postComment("review body", {
+        provider: "sourceCodeApi",
+        projectKey: "PROJ",
+        repoName: "repo",
+        prId: 1
+      });
       const saved = await readFile(outputPath, "utf8");
       expect(saved).toBe("review body");
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("postComment POSTs to quality API when no output path and qualityPost is set", async () => {
+    const requests: { url: string; method: string; body: string }[] = [];
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      requests.push({
+        url,
+        method: init?.method ?? "GET",
+        body: typeof init?.body === "string" ? init.body : ""
+      });
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com/base",
+        "tok",
+        undefined,
+        { branch: "feat/x", commit: "abc123def", path: "/p", severity: "INFO" }
+      );
+      await provider.postComment("hello review", {
+        provider: "sourceCodeApi",
+        projectKey: "ENV/X",
+        repoName: "svc",
+        prId: 99
+      });
+      expect(requests).toHaveLength(1);
+      expect(requests[0].method).toBe("POST");
+      expect(requests[0].url).toContain("/quality-api/api/issues");
+      expect(requests[0].url).toContain("branch=feat%2Fx");
+      expect(requests[0].url).toContain("commit=abc123def");
+      expect(requests[0].url).toContain("projectName=ENV%2FX");
+      expect(requests[0].url).toContain("repoName=svc");
+      expect(requests[0].url).toContain("pr=99");
+      const payload = JSON.parse(requests[0].body) as { msg: string; severity: string; startLine: number };
+      expect(payload.msg).toBe("hello review");
+      expect(payload.severity).toBe("INFO");
+      expect(payload.startLine).toBe(0);
+    } finally {
+      globalThis.fetch = previousFetch;
     }
   });
 });

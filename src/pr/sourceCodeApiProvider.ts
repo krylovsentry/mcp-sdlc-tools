@@ -2,6 +2,14 @@ import type { PrDiffArtifact, PrRef, PullRequestProvider } from "./types";
 
 type SourceCodeApiRef = Extract<PrRef, { provider: "sourceCodeApi" }>;
 
+/** Branch/commit (and optional path/severity) for POST .../quality-api/api/issues when not writing `--output`. */
+export type SourceCodeApiQualityPost = {
+  branch: string;
+  commit: string;
+  path?: string;
+  severity?: string;
+};
+
 type DiffResponse = {
   data?: {
     content?: string;
@@ -67,7 +75,8 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
   constructor(
     private readonly baseUrl: string,
     private readonly token?: string,
-    private readonly outputPath?: string
+    private readonly outputPath?: string,
+    private readonly qualityPost?: SourceCodeApiQualityPost
   ) {}
 
   async fetchDiff(ref: PrRef): Promise<PrDiffArtifact> {
@@ -77,9 +86,7 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
     return this.fetchSourceCodeApiDiff(ref);
   }
 
-  async postComment(body: string): Promise<void> {
-    // The provided OpenAPI spec did not expose a direct "create PR comment" endpoint.
-    // Keep current behavior parity with stub provider: print/write generated review.
+  async postComment(body: string, ref: PrRef): Promise<void> {
     if (this.outputPath) {
       await Bun.write(this.outputPath, body);
       console.error(
@@ -87,8 +94,63 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
       );
       return;
     }
+    if (ref.provider === "sourceCodeApi" && this.qualityPost) {
+      await this.postQualityIssue(body, ref, this.qualityPost);
+      return;
+    }
+    if (this.qualityPost && ref.provider !== "sourceCodeApi") {
+      console.error("[review:pr] quality.post skipped reason=ref-not-sourceCodeApi");
+    } else if (ref.provider === "sourceCodeApi" && !this.qualityPost) {
+      console.error(
+        "[review:pr] quality.post skipped reason=missing-branch-commit pass --branch and --commit (or prReview.qualityBranch / qualityCommit in config)"
+      );
+    }
     console.error(`[review:pr] output.stdout chars=${body.length}`);
     console.log(body);
+  }
+
+  private async postQualityIssue(
+    msg: string,
+    ref: SourceCodeApiRef,
+    qc: SourceCodeApiQualityPost
+  ): Promise<void> {
+    const endpoint = joinUrl(this.baseUrl, "/quality-api/api/issues");
+    const url = new URL(endpoint);
+    url.searchParams.set("branch", qc.branch);
+    url.searchParams.set("commit", qc.commit);
+    url.searchParams.set("path", qc.path ?? "/");
+    url.searchParams.set("projectName", ref.projectKey);
+    url.searchParams.set("repoName", ref.repoName);
+    url.searchParams.set("pr", String(ref.prId));
+
+    const headers: Record<string, string> = {
+      accept: "*/*",
+      "content-type": "application/json",
+      "x-correlation-id": crypto.randomUUID()
+    };
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        startLine: 0,
+        endLine: 0,
+        severity: qc.severity ?? "INFO",
+        msg
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Quality API comment failed (${response.status} ${response.statusText}): ${text}`);
+    }
+
+    console.error(
+      `[review:pr] quality.post ok http=${response.status} project=${ref.projectKey} repo=${ref.repoName} prId=${ref.prId}`
+    );
   }
 
   private async tryFetchPrTitle(ref: SourceCodeApiRef): Promise<string | undefined> {

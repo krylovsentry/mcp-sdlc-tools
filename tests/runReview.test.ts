@@ -19,7 +19,7 @@ describe("runPrReview", () => {
       async fetchDiff(_ref: PrRef) {
         return artifact;
       },
-      async postComment(body: string) {
+      async postComment(body: string, _ref: PrRef) {
         comments.push(body);
       }
     };
@@ -40,7 +40,7 @@ describe("runPrReview", () => {
       async fetchDiff(_ref: PrRef) {
         return { title: "Empty response", unifiedDiff: "diff --git a/f b/f\n" };
       },
-      async postComment() {}
+      async postComment(_body: string, _ref: PrRef) {}
     };
 
     await expect(runPrReview(llm, pr, { provider: "stub" })).rejects.toThrow("Model returned empty review text");

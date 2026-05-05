@@ -20,5 +20,5 @@ export interface PrDiffArtifact {
 
 export interface PullRequestProvider {
   fetchDiff(ref: PrRef): Promise<PrDiffArtifact>;
-  postComment(body: string): Promise<void>;
+  postComment(body: string, ref: PrRef): Promise<void>;
 }

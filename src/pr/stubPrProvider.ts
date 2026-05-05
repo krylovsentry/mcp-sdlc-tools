@@ -13,7 +13,7 @@ export class StubPullRequestProvider implements PullRequestProvider {
     return this.artifact;
   }
 
-  async postComment(body: string): Promise<void> {
+  async postComment(body: string, _ref: PrRef): Promise<void> {
     if (this.outputPath) {
       await Bun.write(this.outputPath, body);
       console.error(

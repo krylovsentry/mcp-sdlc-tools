@@ -50,5 +50,5 @@ export async function runPrReview(
   console.error(
     `[review:pr] review.ready chars=${summary.length} preview=${JSON.stringify(firstLinePreview(summary))}`
   );
-  await pr.postComment(summary);
+  await pr.postComment(summary, ref);
 }

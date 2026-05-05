@@ -34,9 +34,33 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 	const projectKey = parseArg(argv, "--project-key");
 	const repoName = parseArg(argv, "--repo-name");
 	const prIdRaw = parseArg(argv, "--pr-id");
+	const branchArg = parseArg(argv, "--branch");
+	const commitArg = parseArg(argv, "--commit");
+	const qualityPathArg = parseArg(argv, "--quality-path");
+	const qualitySeverityArg = parseArg(argv, "--quality-severity");
 	const token = parseArg(argv, "--token") ?? process.env.SOURCE_CODE_API_TOKEN;
 
 	const config = await loadConfig(configPath);
+	const branch = branchArg ?? config.prReview?.qualityBranch;
+	const commit = commitArg ?? config.prReview?.qualityCommit;
+	const qualityPath = qualityPathArg ?? config.prReview?.qualityPath;
+	const qualitySeverity = qualitySeverityArg ?? config.prReview?.qualitySeverity;
+
+	if ((branch?.trim() && !commit?.trim()) || (!branch?.trim() && commit?.trim())) {
+		console.error(
+			"[review:pr] quality.post ignored: use both --branch and --commit (or config prReview.qualityBranch and qualityCommit together)",
+		);
+	}
+
+	const qualityPost =
+		branch?.trim() && commit?.trim()
+			? {
+					branch: branch.trim(),
+					commit: commit.trim(),
+					...(qualityPath?.trim() ? { path: qualityPath.trim() } : {}),
+					...(qualitySeverity?.trim() ? { severity: qualitySeverity.trim() } : {}),
+				}
+			: undefined;
 	const llm =
 		config.model.provider === "openaiCompat"
 			? new OpenAiCompatProvider(config.model)
@@ -50,7 +74,7 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 		if (!baseUrl || !projectKey || !repoName || !prIdRaw) {
 			throw new Error(
 				"Missing sourceCodeApi args. Required: --base-url --project-key --repo-name --pr-id. " +
-					"Optional: --token (or SOURCE_CODE_API_TOKEN env), --output.",
+					"Optional: --token (or SOURCE_CODE_API_TOKEN env), --output, --branch, --commit, --quality-path, --quality-severity.",
 			);
 		}
 		const prId = Number(prIdRaw);
@@ -67,9 +91,12 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 			baseUrl,
 			token,
 			outputPath,
+			qualityPost,
 		);
+		const outLabel =
+			outputPath ?? (qualityPost ? "quality-api" : "stdout");
 		console.error(
-			`[review:pr] sourceCodeApi target=${baseUrl} project=${projectKey} repo=${repoName} prId=${prId} tokenProvided=${token ? "yes" : "no"}`,
+			`[review:pr] sourceCodeApi target=${baseUrl} project=${projectKey} repo=${repoName} prId=${prId} tokenProvided=${token ? "yes" : "no"} output=${outLabel}`,
 		);
 	} else {
 		let unifiedDiff: string;
@@ -93,8 +120,12 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 		);
 	}
 
+	const outputLabel =
+		providerName === "sourceCodeApi"
+			? outputPath ?? (qualityPost ? "quality-api" : "stdout")
+			: outputPath ?? "stdout";
 	console.error(
-		`[review:pr] llm=${config.model.provider} model=${config.model.modelName} prProvider=${providerName} output=${outputPath ?? "stdout"}`,
+		`[review:pr] llm=${config.model.provider} model=${config.model.modelName} prProvider=${providerName} output=${outputLabel}`,
 	);
 
 	await runPrReview(llm, prProvider, prRef);

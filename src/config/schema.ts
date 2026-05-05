@@ -52,7 +52,14 @@ const agentConfigSchema = z.object({
 /** Optional PR review CLI defaults (stub provider writes review to stdout or a file). */
 const prReviewConfigSchema = z.object({
   /** Default path for review text when `bun run review:pr` is used without `--output`. */
-  outputPath: z.string().optional()
+  outputPath: z.string().optional(),
+  /** When set with `qualityCommit`, post review to the portal Quality API if `--output` is not used. */
+  qualityBranch: z.string().optional(),
+  qualityCommit: z.string().optional(),
+  /** Query `path` for Quality API (default `/`). */
+  qualityPath: z.string().optional(),
+  /** Issue severity in the Quality API payload (default `INFO`). */
+  qualitySeverity: z.string().optional()
 });
 
 export const appConfigSchema = z.object({
