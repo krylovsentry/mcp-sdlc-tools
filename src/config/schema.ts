@@ -53,7 +53,7 @@ const agentConfigSchema = z.object({
 const prReviewConfigSchema = z.object({
   /** Default path for review text when `bun run review:pr` is used without `--output`. */
   outputPath: z.string().optional(),
-  /** When set with `qualityCommit`, post review to the portal Quality API if `--output` is not used. */
+  /** When set with `qualityCommit`, post review via POST .../projects/.../repos/.../issues if `--output` is not used. */
   qualityBranch: z.string().optional(),
   qualityCommit: z.string().optional(),
   /** Query `path` for Quality API (default `/`). */

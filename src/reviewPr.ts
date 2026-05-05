@@ -49,7 +49,7 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 
 	if ((branch?.trim() && !commit?.trim()) || (!branch?.trim() && commit?.trim())) {
 		console.error(
-			"[review:pr] quality.post ignored: use both --branch and --commit (or config prReview.qualityBranch and qualityCommit together)",
+			"[review:pr] issues.post ignored: use both --branch and --commit (or config prReview.qualityBranch and qualityCommit together)",
 		);
 	}
 
@@ -96,7 +96,7 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 			cookie,
 		);
 		const outLabel =
-			outputPath ?? (qualityPost ? "quality-api" : "stdout");
+			outputPath ?? (qualityPost ? "rest-issues" : "stdout");
 		console.error(
 			`[review:pr] sourceCodeApi target=${baseUrl} project=${projectKey} repo=${repoName} prId=${prId} tokenProvided=${token ? "yes" : "no"} cookieProvided=${cookie ? "yes" : "no"} output=${outLabel}`,
 		);
@@ -124,7 +124,7 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 
 	const outputLabel =
 		providerName === "sourceCodeApi"
-			? outputPath ?? (qualityPost ? "quality-api" : "stdout")
+			? outputPath ?? (qualityPost ? "rest-issues" : "stdout")
 			: outputPath ?? "stdout";
 	console.error(
 		`[review:pr] llm=${config.model.provider} model=${config.model.modelName} prProvider=${providerName} output=${outputLabel}`,

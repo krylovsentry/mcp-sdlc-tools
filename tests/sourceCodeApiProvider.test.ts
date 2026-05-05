@@ -116,7 +116,7 @@ describe("SourceCodeApiPullRequestProvider", () => {
     }
   });
 
-  test("postComment POSTs to quality API when no output path and qualityPost is set", async () => {
+  test("postComment POSTs to .../projects/.../repos/.../issues when no output and branch+commit set", async () => {
     const requests: { url: string; method: string; body: string }[] = [];
     const previousFetch = globalThis.fetch;
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -144,16 +144,16 @@ describe("SourceCodeApiPullRequestProvider", () => {
       });
       expect(requests).toHaveLength(1);
       expect(requests[0].method).toBe("POST");
-      expect(requests[0].url).toContain("/quality-api/api/issues");
-      expect(requests[0].url).toContain("branch=feat%2Fx");
-      expect(requests[0].url).toContain("commit=abc123def");
-      expect(requests[0].url).toContain("projectName=ENV%2FX");
-      expect(requests[0].url).toContain("repoName=svc");
-      expect(requests[0].url).toContain("pr=99");
-      const payload = JSON.parse(requests[0].body) as { msg: string; severity: string; startLine: number };
-      expect(payload.msg).toBe("hello review");
+      expect(requests[0].url).toBe(
+        "https://scm.example.com/base/projects/ENV/X/repos/svc/issues"
+      );
+      const payload = JSON.parse(requests[0].body) as Record<string, unknown>;
+      expect(payload.message).toBe("hello review");
       expect(payload.severity).toBe("INFO");
-      expect(payload.startLine).toBe(0);
+      expect(payload.branch).toBe("feat/x");
+      expect(payload.commit).toBe("abc123def");
+      expect(payload.pullRequestId).toBe(99);
+      expect(payload.path).toBe("/p");
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -192,7 +192,7 @@ describe("SourceCodeApiPullRequestProvider", () => {
     }
   });
 
-  test("quality POST strips trailing /api/v2 from base-url (sibling quality-api path)", async () => {
+  test("issues POST uses v2 base-url (path under .../api/v2/projects/...)", async () => {
     let requestedUrl = "";
     const previousFetch = globalThis.fetch;
     globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -213,8 +213,9 @@ describe("SourceCodeApiPullRequestProvider", () => {
         repoName: "insider-fe-svc",
         prId: 110684
       });
-      expect(requestedUrl).toContain("/app/sourcecode/api/quality-api/api/issues");
-      expect(requestedUrl).not.toContain("/api/v2/");
+      expect(requestedUrl).toBe(
+        "https://sfera-t1.ru/app/sourcecode/api/api/v2/projects/ENVHR/INSIDERS/repos/insider-fe-svc/issues"
+      );
     } finally {
       globalThis.fetch = previousFetch;
     }

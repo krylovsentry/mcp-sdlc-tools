@@ -2,7 +2,7 @@ import type { PrDiffArtifact, PrRef, PullRequestProvider } from "./types";
 
 type SourceCodeApiRef = Extract<PrRef, { provider: "sourceCodeApi" }>;
 
-/** Branch/commit (and optional path/severity) for POST .../quality-api/api/issues when not writing `--output`. */
+/** Branch/commit (and optional path/severity) for POST Source Code API `.../projects/.../repos/.../issues` when not writing `--output`. */
 export type SourceCodeApiQualityPost = {
   branch: string;
   commit: string;
@@ -45,15 +45,6 @@ function extractPrTitle(json: unknown): string | undefined {
 
 function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}${path}`;
-}
-
-/**
- * REST OpenAPI is typically mounted at `.../api/v2`. Quality API is a sibling at
- * `.../quality-api/...`, not under `.../api/v2/quality-api/...`. Strip a trailing `/api/vN`
- * from the configured base URL before joining `/quality-api/api/issues`.
- */
-function resolveQualityApiBaseUrl(sourceCodeApiBaseUrl: string): string {
-  return sourceCodeApiBaseUrl.replace(/\/+$/, "").replace(/\/api\/v\d+$/i, "");
 }
 
 function encodePathPreservingSlashes(value: string): string {
@@ -115,36 +106,45 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
       return;
     }
     if (ref.provider === "sourceCodeApi" && this.qualityPost) {
-      await this.postQualityIssue(body, ref, this.qualityPost);
+      await this.postProjectRepoIssue(body, ref, this.qualityPost);
       return;
     }
     if (this.qualityPost && ref.provider !== "sourceCodeApi") {
-      console.error("[review:pr] quality.post skipped reason=ref-not-sourceCodeApi");
+      console.error("[review:pr] issues.post skipped reason=ref-not-sourceCodeApi");
     } else if (ref.provider === "sourceCodeApi" && !this.qualityPost) {
       console.error(
-        "[review:pr] quality.post skipped reason=missing-branch-commit pass --branch and --commit (or prReview.qualityBranch / qualityCommit in config)"
+        "[review:pr] issues.post skipped reason=missing-branch-commit pass --branch and --commit (or prReview.qualityBranch / qualityCommit in config)"
       );
     }
     console.error(`[review:pr] output.stdout chars=${body.length}`);
     console.log(body);
   }
 
-  private async postQualityIssue(
+  /**
+   * POST /projects/{projectKey}/repos/{repoName}/issues (same OpenAPI v2 base as diff).
+   * Body shape follows common Source Code swagger; align field names with your spec if requests fail validation.
+   */
+  private async postProjectRepoIssue(
     msg: string,
     ref: SourceCodeApiRef,
     qc: SourceCodeApiQualityPost
   ): Promise<void> {
-    const endpoint = joinUrl(resolveQualityApiBaseUrl(this.baseUrl), "/quality-api/api/issues");
-    const url = new URL(endpoint);
-    url.searchParams.set("branch", qc.branch);
-    url.searchParams.set("commit", qc.commit);
-    url.searchParams.set("path", qc.path ?? "/");
-    url.searchParams.set("projectName", ref.projectKey);
-    url.searchParams.set("repoName", ref.repoName);
-    url.searchParams.set("pr", String(ref.prId));
+    const projectPath = encodePathPreservingSlashes(ref.projectKey);
+    const repoPath = encodePathPreservingSlashes(ref.repoName);
+    const path = `/projects/${projectPath}/repos/${repoPath}/issues`;
+    const url = joinUrl(this.baseUrl, path);
+
+    const payload: Record<string, unknown> = {
+      branch: qc.branch,
+      commit: qc.commit,
+      pullRequestId: ref.prId,
+      severity: qc.severity ?? "INFO",
+      message: msg,
+      path: qc.path && qc.path.length > 0 ? qc.path : "/"
+    };
 
     const headers: Record<string, string> = {
-      accept: "*/*",
+      accept: "application/json",
       "content-type": "application/json",
       "x-correlation-id": crypto.randomUUID()
     };
@@ -153,21 +153,18 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
     const response = await fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        startLine: 0,
-        endLine: 0,
-        severity: qc.severity ?? "INFO",
-        msg
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      throw new Error(`Quality API comment failed (${response.status} ${response.statusText}): ${text}`);
+      throw new Error(
+        `Source Code API create issue failed (${response.status} ${response.statusText}): ${text}`
+      );
     }
 
     console.error(
-      `[review:pr] quality.post ok http=${response.status} project=${ref.projectKey} repo=${ref.repoName} prId=${ref.prId}`
+      `[review:pr] issues.post ok http=${response.status} project=${ref.projectKey} repo=${ref.repoName} prId=${ref.prId}`
     );
   }
 
