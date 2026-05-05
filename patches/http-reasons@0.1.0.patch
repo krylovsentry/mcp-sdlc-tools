@@ -1,0 +1,12 @@
+diff --git a/package.json b/package.json
+index 4ec35681de77251f18074ff82e058cd511414d01..b60bacc571ad6b13669a406ff811bb057d64af51 100644
+--- a/package.json
++++ b/package.json
+@@ -17,7 +17,6 @@
+     "response-code",
+     "reason"
+   ],
+-  "author": "Shamasis Bhattacharya <mail@shamasis.net> (=)",
+   "license": "Apache-2.0",
+   "bugs": {
+     "url": "https://github.com/postmanlabs/http-reasons/issues"
