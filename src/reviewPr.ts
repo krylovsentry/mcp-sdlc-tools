@@ -39,6 +39,7 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 	const qualityPathArg = parseArg(argv, "--quality-path");
 	const qualitySeverityArg = parseArg(argv, "--quality-severity");
 	const token = parseArg(argv, "--token") ?? process.env.SOURCE_CODE_API_TOKEN;
+	const cookie = parseArg(argv, "--cookie") ?? process.env.SOURCE_CODE_API_COOKIE;
 
 	const config = await loadConfig(configPath);
 	const branch = branchArg ?? config.prReview?.qualityBranch;
@@ -74,7 +75,7 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 		if (!baseUrl || !projectKey || !repoName || !prIdRaw) {
 			throw new Error(
 				"Missing sourceCodeApi args. Required: --base-url --project-key --repo-name --pr-id. " +
-					"Optional: --token (or SOURCE_CODE_API_TOKEN env), --output, --branch, --commit, --quality-path, --quality-severity.",
+					"Optional: --token (or SOURCE_CODE_API_TOKEN), --cookie (or SOURCE_CODE_API_COOKIE), --output, --branch, --commit, --quality-path, --quality-severity.",
 			);
 		}
 		const prId = Number(prIdRaw);
@@ -92,11 +93,12 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 			token,
 			outputPath,
 			qualityPost,
+			cookie,
 		);
 		const outLabel =
 			outputPath ?? (qualityPost ? "quality-api" : "stdout");
 		console.error(
-			`[review:pr] sourceCodeApi target=${baseUrl} project=${projectKey} repo=${repoName} prId=${prId} tokenProvided=${token ? "yes" : "no"} output=${outLabel}`,
+			`[review:pr] sourceCodeApi target=${baseUrl} project=${projectKey} repo=${repoName} prId=${prId} tokenProvided=${token ? "yes" : "no"} cookieProvided=${cookie ? "yes" : "no"} output=${outLabel}`,
 		);
 	} else {
 		let unifiedDiff: string;

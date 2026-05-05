@@ -47,6 +47,15 @@ function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}${path}`;
 }
 
+/**
+ * REST OpenAPI is typically mounted at `.../api/v2`. Quality API is a sibling at
+ * `.../quality-api/...`, not under `.../api/v2/quality-api/...`. Strip a trailing `/api/vN`
+ * from the configured base URL before joining `/quality-api/api/issues`.
+ */
+function resolveQualityApiBaseUrl(sourceCodeApiBaseUrl: string): string {
+  return sourceCodeApiBaseUrl.replace(/\/+$/, "").replace(/\/api\/v\d+$/i, "");
+}
+
 function encodePathPreservingSlashes(value: string): string {
   return value
     .split("/")
@@ -76,8 +85,19 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
     private readonly baseUrl: string,
     private readonly token?: string,
     private readonly outputPath?: string,
-    private readonly qualityPost?: SourceCodeApiQualityPost
+    private readonly qualityPost?: SourceCodeApiQualityPost,
+    /** Browser session string (e.g. `NAME=value; NAME2=value2`) when the API expects cookies instead of Bearer. */
+    private readonly cookie?: string
   ) {}
+
+  private applyAuthHeaders(headers: Record<string, string>): void {
+    if (this.cookie) {
+      headers.Cookie = this.cookie;
+    }
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    }
+  }
 
   async fetchDiff(ref: PrRef): Promise<PrDiffArtifact> {
     if (ref.provider !== "sourceCodeApi") {
@@ -114,7 +134,7 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
     ref: SourceCodeApiRef,
     qc: SourceCodeApiQualityPost
   ): Promise<void> {
-    const endpoint = joinUrl(this.baseUrl, "/quality-api/api/issues");
+    const endpoint = joinUrl(resolveQualityApiBaseUrl(this.baseUrl), "/quality-api/api/issues");
     const url = new URL(endpoint);
     url.searchParams.set("branch", qc.branch);
     url.searchParams.set("commit", qc.commit);
@@ -128,9 +148,7 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
       "content-type": "application/json",
       "x-correlation-id": crypto.randomUUID()
     };
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
+    this.applyAuthHeaders(headers);
 
     const response = await fetch(url, {
       method: "POST",
@@ -160,9 +178,7 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
     const headers: Record<string, string> = {
       Accept: "application/json"
     };
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
+    this.applyAuthHeaders(headers);
     try {
       const response = await fetch(joinUrl(this.baseUrl, path), {
         method: "GET",
@@ -195,9 +211,7 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
     const headers: Record<string, string> = {
       Accept: "application/json"
     };
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
+    this.applyAuthHeaders(headers);
 
     const response = await fetch(joinUrl(this.baseUrl, path), {
       method: "GET",

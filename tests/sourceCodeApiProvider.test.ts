@@ -158,4 +158,65 @@ describe("SourceCodeApiPullRequestProvider", () => {
       globalThis.fetch = previousFetch;
     }
   });
+
+  test("postComment sends Cookie when configured (session auth)", async () => {
+    let cookieSent: string | undefined;
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const h = init?.headers;
+      if (h && typeof h === "object" && !(h instanceof Headers)) {
+        cookieSent = (h as Record<string, string>).Cookie;
+      } else if (h instanceof Headers) {
+        cookieSent = h.get("Cookie") ?? undefined;
+      }
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com/base",
+        undefined,
+        undefined,
+        { branch: "main", commit: "deadbeef" },
+        "SESSIONID=abc; route=1"
+      );
+      await provider.postComment("x", {
+        provider: "sourceCodeApi",
+        projectKey: "P",
+        repoName: "r",
+        prId: 1
+      });
+      expect(cookieSent).toBe("SESSIONID=abc; route=1");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("quality POST strips trailing /api/v2 from base-url (sibling quality-api path)", async () => {
+    let requestedUrl = "";
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      requestedUrl = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://sfera-t1.ru/app/sourcecode/api/api/v2",
+        "tok",
+        undefined,
+        { branch: "feat/x", commit: "abc" }
+      );
+      await provider.postComment("msg", {
+        provider: "sourceCodeApi",
+        projectKey: "ENVHR/INSIDERS",
+        repoName: "insider-fe-svc",
+        prId: 110684
+      });
+      expect(requestedUrl).toContain("/app/sourcecode/api/quality-api/api/issues");
+      expect(requestedUrl).not.toContain("/api/v2/");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
 });
