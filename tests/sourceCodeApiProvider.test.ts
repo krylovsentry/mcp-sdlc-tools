@@ -4,15 +4,6 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { SourceCodeApiPullRequestProvider, normalizeBrowserCookieInput } from "../src/pr/sourceCodeApiProvider";
 
-function unwrapIssuesPostData(raw: string): Record<string, unknown> {
-  const root = JSON.parse(raw) as Record<string, unknown>;
-  const data = root.data;
-  if (data && typeof data === "object" && !Array.isArray(data)) {
-    return data as Record<string, unknown>;
-  }
-  return root;
-}
-
 describe("SourceCodeApiPullRequestProvider", () => {
   test("normalizeBrowserCookieInput strips Set-Cookie attributes after first pair", () => {
     expect(normalizeBrowserCookieInput("ACCESS_TOKEN=a.b.c; Max-Age=28744; Path=/; Secure")).toBe(
@@ -232,18 +223,19 @@ describe("SourceCodeApiPullRequestProvider", () => {
       );
       const root = JSON.parse(requests[0].body) as Record<string, unknown>;
       expect(root.data).toBeDefined();
-      const payload = unwrapIssuesPostData(requests[0].body);
+      expect(root.repoTask).toEqual({
+        name: "LLM PR review #99",
+        branch: "feat/x",
+        commit: "abc123def"
+      });
+      const payload = root.data as Record<string, unknown>;
       expect(payload.message).toBe("hello review");
       expect(payload.severity).toBe("INFO");
       expect(payload.branch).toBe("feat/x");
       expect(payload.commit).toBe("abc123def");
       expect(payload.pullRequestId).toBe(99);
       expect(payload.path).toBe("/p");
-      expect(payload.repoTask).toEqual({
-        name: "LLM PR review #99",
-        branch: "feat/x",
-        commit: "abc123def"
-      });
+      expect(payload.repoTask).toBeUndefined();
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -291,6 +283,94 @@ describe("SourceCodeApiPullRequestProvider", () => {
     }
   });
 
+  test("postComment issues nests repoTask inside data when SOURCE_CODE_API_ISSUES_LAYOUT=nested", async () => {
+    const prev = process.env.SOURCE_CODE_API_ISSUES_LAYOUT;
+    process.env.SOURCE_CODE_API_ISSUES_LAYOUT = "nested";
+    const requests: { body: string }[] = [];
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({
+        body: typeof init?.body === "string" ? init.body : ""
+      });
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com/base",
+        "tok",
+        undefined,
+        { branch: "b1", commit: "c1" }
+      );
+      await provider.postComment("z", {
+        provider: "sourceCodeApi",
+        projectKey: "P",
+        repoName: "r",
+        prId: 2
+      });
+      const root = JSON.parse(requests[0].body) as Record<string, unknown>;
+      expect(root.repoTask).toBeUndefined();
+      const inner = root.data as Record<string, unknown>;
+      expect(inner.repoTask).toEqual({
+        name: "LLM PR review #2",
+        branch: "b1",
+        commit: "c1"
+      });
+    } finally {
+      globalThis.fetch = previousFetch;
+      if (prev === undefined) {
+        delete process.env.SOURCE_CODE_API_ISSUES_LAYOUT;
+      } else {
+        process.env.SOURCE_CODE_API_ISSUES_LAYOUT = prev;
+      }
+    }
+  });
+
+  test("postComment issues uses snake_case when SOURCE_CODE_API_ISSUES_SNAKE=1", async () => {
+    const prev = process.env.SOURCE_CODE_API_ISSUES_SNAKE;
+    process.env.SOURCE_CODE_API_ISSUES_SNAKE = "1";
+    const requests: { body: string }[] = [];
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({
+        body: typeof init?.body === "string" ? init.body : ""
+      });
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com/base",
+        "tok",
+        undefined,
+        { branch: "main", commit: "abc" }
+      );
+      await provider.postComment("x", {
+        provider: "sourceCodeApi",
+        projectKey: "P",
+        repoName: "r",
+        prId: 8
+      });
+      const root = JSON.parse(requests[0].body) as Record<string, unknown>;
+      expect(root.repoTask).toBeUndefined();
+      expect(root.repo_task).toEqual({
+        name: "LLM PR review #8",
+        branch: "main",
+        commit: "abc"
+      });
+      const inner = root.data as Record<string, unknown>;
+      expect(inner.pull_request_id).toBe(8);
+      expect(inner.pullRequestId).toBeUndefined();
+    } finally {
+      globalThis.fetch = previousFetch;
+      if (prev === undefined) {
+        delete process.env.SOURCE_CODE_API_ISSUES_SNAKE;
+      } else {
+        process.env.SOURCE_CODE_API_ISSUES_SNAKE = prev;
+      }
+    }
+  });
+
   test("postComment issues payload uses custom repoTask.name when set", async () => {
     const requests: { body: string }[] = [];
     const previousFetch = globalThis.fetch;
@@ -320,12 +400,15 @@ describe("SourceCodeApiPullRequestProvider", () => {
       });
       const root = JSON.parse(requests[0].body) as Record<string, unknown>;
       expect(root.data).toBeDefined();
-      const payload = unwrapIssuesPostData(requests[0].body);
-      expect(payload.repoTask).toEqual({
+      expect(root.repoTask).toEqual({
         name: "Security scan follow-up",
         branch: "main",
         commit: "abc"
       });
+      const payload = root.data as Record<string, unknown>;
+      expect(payload.repoTask).toBeUndefined();
+      expect(payload.branch).toBe("main");
+      expect(payload.commit).toBe("abc");
     } finally {
       globalThis.fetch = previousFetch;
     }

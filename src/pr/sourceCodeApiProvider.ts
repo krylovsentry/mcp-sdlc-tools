@@ -222,7 +222,8 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
 
   /**
    * POST /projects/{projectKey}/repos/{repoName}/issues (same OpenAPI v2 base as diff).
-   * Body: `{ "data": { branch, commit, pullRequestId, …, repoTask: { name, branch, commit } } }` (same `data` envelope as read endpoints).
+   * Body layout (see env below): by default `{ "data": { branch, commit, … }, "repoTask": { name, branch, commit } }`
+   * — `repoTask` is a **sibling** of `data` because some gateways only bind nested task fields when structured this way.
    */
   private async postProjectRepoIssue(
     msg: string,
@@ -238,23 +239,49 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
       qc.repoTaskName?.trim() ||
       `LLM PR review #${ref.prId}`;
 
-    /** API mirrors response shape (`{ data: … }`); flat body leaves `repoTask` unset and `name` validates as empty. */
-    const data: Record<string, unknown> = {
+    const repoTaskPayload = {
+      name: taskName,
+      branch: qc.branch,
+      commit: qc.commit
+    };
+
+    const innerCam = {
       branch: qc.branch,
       commit: qc.commit,
       pullRequestId: ref.prId,
       severity: qc.severity ?? "INFO",
       message: msg,
-      path: qc.path && qc.path.length > 0 ? qc.path : "/",
-      repoTask: {
-        name: taskName,
-        branch: qc.branch,
-        commit: qc.commit
-      }
+      path: qc.path && qc.path.length > 0 ? qc.path : "/"
     };
+
+    const innerSnake = {
+      branch: innerCam.branch,
+      commit: innerCam.commit,
+      pull_request_id: innerCam.pullRequestId,
+      severity: innerCam.severity,
+      message: innerCam.message,
+      path: innerCam.path
+    };
+
     const flat =
       process.env.SOURCE_CODE_API_ISSUES_BODY?.trim().toLowerCase() === "flat";
-    const payload = flat ? data : { data };
+    const nestedInData =
+      process.env.SOURCE_CODE_API_ISSUES_LAYOUT?.trim().toLowerCase() === "nested";
+    const snake =
+      process.env.SOURCE_CODE_API_ISSUES_SNAKE?.trim().toLowerCase() === "1" ||
+      process.env.SOURCE_CODE_API_ISSUES_SNAKE?.trim().toLowerCase() === "true";
+
+    const inner = snake ? innerSnake : innerCam;
+    const repoTaskKey = snake ? "repo_task" : "repoTask";
+
+    let payload: Record<string, unknown>;
+    if (flat) {
+      payload = { ...inner, [repoTaskKey]: repoTaskPayload };
+    } else if (nestedInData) {
+      payload = { data: { ...inner, [repoTaskKey]: repoTaskPayload } };
+    } else {
+      payload = { data: inner, [repoTaskKey]: repoTaskPayload };
+    }
 
     const headers: Record<string, string> = {
       accept: "application/json",

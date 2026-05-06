@@ -124,9 +124,9 @@ bun run review:pr -- \
   --output ".artifacts/pr-review-last.md"
 ```
 
-The POST body uses the same **`{ "data": { … } }` envelope** as read endpoints (e.g. diff). A flat JSON body can yield `repoTask` validation errors because the server only reads the nested `data` object. Inside `data`, **`repoTask` includes `name`, `branch`, and `commit`** (branch/commit match the quality `--branch` / `--commit`); use `--quality-repo-task-name` to override `repoTask.name` only.
+The default issues POST body is **`{ "data": { branch, commit, pullRequestId, severity, message, path }, "repoTask": { name, branch, commit } }`** — `repoTask` is a **sibling** of `data` (not inside it), matching servers that bind task fields at the root. Task `branch` / `commit` match `--branch` / `--commit`; override the task title with `--quality-repo-task-name`.
 
-If your server expects a **flat** JSON body (no `data` wrapper), set `SOURCE_CODE_API_ISSUES_BODY=flat`. Session-only cookies: merge into `SOURCE_CODE_API_COOKIE` (`SESSIONID=...; route=1; ...`) and keep `ACCESS_TOKEN=...` as needed.
+Tuning (env): **`SOURCE_CODE_API_ISSUES_BODY=flat`** — single object, no `data` wrapper. **`SOURCE_CODE_API_ISSUES_LAYOUT=nested`** — put `repoTask` back inside `data` only. **`SOURCE_CODE_API_ISSUES_SNAKE=1`** — use `pull_request_id`, `repo_task`, etc. Session-only cookies: merge into `SOURCE_CODE_API_COOKIE` (`SESSIONID=...; route=1; ...`) and keep `ACCESS_TOKEN=...` as needed.
 
 For gateways that require **HTTP Basic**, use `--basic-user` and `--basic-password`, or env `SOURCE_CODE_API_BASIC_USER` / `SOURCE_CODE_API_BASIC_PASSWORD`, or `prReview.basicUser` / `basicPassword` in config. If you also pass a bearer JWT, the `Authorization` header is Basic and the JWT is still sent via the `ACCESS_TOKEN` cookie.
 
