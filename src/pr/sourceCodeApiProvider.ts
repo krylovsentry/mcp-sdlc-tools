@@ -67,6 +67,50 @@ function decodeMaybeBase64(value: string): string {
   }
 }
 
+/** Cookie pair name used by some stacks when the session JWT is also sent as a cookie (e.g. Keycloak / browser channel). */
+const ACCESS_TOKEN_COOKIE = "ACCESS_TOKEN";
+
+/**
+ * Turn a pasted `Set-Cookie` line into a `Cookie` header fragment (`name=value` only).
+ * Request cookies must not include Path, Max-Age, etc.
+ */
+export function normalizeBrowserCookieInput(raw: string): string {
+  const t = raw.trim();
+  if (!t) {
+    return t;
+  }
+  const attrStart = t.search(/;\s*(?:Path|Max-Age|Expires|Domain|Secure|HttpOnly|SameSite)\b/i);
+  if (attrStart === -1) {
+    return t;
+  }
+  const firstPart = t.slice(0, attrStart).trim();
+  return firstPart.includes("=") ? firstPart : t;
+}
+
+function parseCookiePairs(cookieHeader: string): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const part of cookieHeader.split(";")) {
+    const p = part.trim();
+    if (!p) {
+      continue;
+    }
+    const eq = p.indexOf("=");
+    if (eq === -1) {
+      continue;
+    }
+    const name = p.slice(0, eq).trim();
+    const value = p.slice(eq + 1).trim();
+    if (name) {
+      map.set(name, value);
+    }
+  }
+  return map;
+}
+
+function cookieHeaderFromPairs(pairs: Map<string, string>): string {
+  return [...pairs.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
+}
+
 /**
  * Pull request provider for "Source Code API v2" .
  * Uses GET /projects/{projectKey}/repos/{repoName}/pull-requests/{prId}/diff.
@@ -78,15 +122,29 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
     private readonly outputPath?: string,
     private readonly qualityPost?: SourceCodeApiQualityPost,
     /** Browser session string (e.g. `NAME=value; NAME2=value2`) when the API expects cookies instead of Bearer. */
-    private readonly cookie?: string
+    private readonly cookie?: string,
+    /**
+     * When true: write `outputPath` if set, attempt issues POST when `qualityPost` is set, then print body to stdout.
+     * POST failures are logged and ignored so local file + stdout still succeed (e.g. 401 while debugging auth).
+     */
+    private readonly emitAll?: boolean
   ) {}
 
   private applyAuthHeaders(headers: Record<string, string>): void {
-    if (this.cookie) {
-      headers.Cookie = this.cookie;
+    const normalizedCookieInput = this.cookie ? normalizeBrowserCookieInput(this.cookie) : "";
+    const pairs = normalizedCookieInput ? parseCookiePairs(normalizedCookieInput) : new Map<string, string>();
+
+    const tokenTrim = this.token?.trim();
+    const accessFromCookie = pairs.get(ACCESS_TOKEN_COOKIE)?.trim();
+    const bearerRaw = tokenTrim || accessFromCookie;
+
+    if (bearerRaw) {
+      headers.Authorization = `Bearer ${bearerRaw}`;
+      pairs.set(ACCESS_TOKEN_COOKIE, bearerRaw);
     }
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
+
+    if (pairs.size > 0) {
+      headers.Cookie = cookieHeaderFromPairs(pairs);
     }
   }
 
@@ -98,6 +156,34 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
   }
 
   async postComment(body: string, ref: PrRef): Promise<void> {
+    if (this.emitAll) {
+      if (this.outputPath) {
+        await Bun.write(this.outputPath, body);
+        console.error(
+          `[review:pr] output.written path=${JSON.stringify(this.outputPath)} chars=${body.length}`
+        );
+      } else {
+        console.error("[review:pr] emit-all.warn no output path configured; skipping file write");
+      }
+      if (ref.provider === "sourceCodeApi" && this.qualityPost) {
+        try {
+          await this.postProjectRepoIssue(body, ref, this.qualityPost);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[review:pr] issues.post failed (continuing) error=${JSON.stringify(msg)}`);
+        }
+      } else if (this.qualityPost && ref.provider !== "sourceCodeApi") {
+        console.error("[review:pr] issues.post skipped reason=ref-not-sourceCodeApi");
+      } else if (ref.provider === "sourceCodeApi" && !this.qualityPost) {
+        console.error(
+          "[review:pr] issues.post skipped reason=missing-branch-commit pass --branch and --commit (or prReview.qualityBranch / qualityCommit in config)"
+        );
+      }
+      console.error(`[review:pr] output.stdout chars=${body.length}`);
+      console.log(body);
+      return;
+    }
+
     if (this.outputPath) {
       await Bun.write(this.outputPath, body);
       console.error(

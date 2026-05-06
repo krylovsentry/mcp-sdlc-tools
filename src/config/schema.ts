@@ -53,13 +53,21 @@ const agentConfigSchema = z.object({
 const prReviewConfigSchema = z.object({
   /** Default path for review text when `bun run review:pr` is used without `--output`. */
   outputPath: z.string().optional(),
-  /** When set with `qualityCommit`, post review via POST .../projects/.../repos/.../issues if `--output` is not used. */
+  /**
+   * When set with `qualityCommit`, post review via POST .../projects/.../repos/.../issues.
+   * If `emitAll` is false (default), setting `outputPath` (or `--output`) skips the POST and only writes the file.
+   */
   qualityBranch: z.string().optional(),
   qualityCommit: z.string().optional(),
   /** Query `path` for Quality API (default `/`). */
   qualityPath: z.string().optional(),
   /** Issue severity in the Quality API payload (default `INFO`). */
-  qualitySeverity: z.string().optional()
+  qualitySeverity: z.string().optional(),
+  /**
+   * When true with `review:pr` sourceCodeApi: write `--output` / `outputPath`, attempt issues POST when branch+commit are set,
+   * and print the review body to stdout (file + API + IO). POST errors are logged to stderr and do not fail the command.
+   */
+  emitAll: z.boolean().optional()
 });
 
 export const appConfigSchema = z.object({

@@ -2,9 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { SourceCodeApiPullRequestProvider } from "../src/pr/sourceCodeApiProvider";
+import { SourceCodeApiPullRequestProvider, normalizeBrowserCookieInput } from "../src/pr/sourceCodeApiProvider";
 
 describe("SourceCodeApiPullRequestProvider", () => {
+  test("normalizeBrowserCookieInput strips Set-Cookie attributes after first pair", () => {
+    expect(normalizeBrowserCookieInput("ACCESS_TOKEN=a.b.c; Max-Age=28744; Path=/; Secure")).toBe(
+      "ACCESS_TOKEN=a.b.c"
+    );
+    expect(normalizeBrowserCookieInput("SESSIONID=z; route=1")).toBe("SESSIONID=z; route=1");
+  });
+
   test("fetchDiff decodes base64 diff content", async () => {
     const provider = new SourceCodeApiPullRequestProvider("https://scm.example.com", "token");
     const diff = "diff --git a/a.ts b/a.ts\n+hello\n";
@@ -98,6 +105,73 @@ describe("SourceCodeApiPullRequestProvider", () => {
     }
   });
 
+  test("postComment emit-all writes file, POSTs issues, and prints body to stdout", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "sourcecode-pr-provider-"));
+    const requests: { method: string; url: string }[] = [];
+    const stdoutLines: string[] = [];
+    const previousFetch = globalThis.fetch;
+    const previousLog = console.log;
+    console.log = (...args: unknown[]) => {
+      stdoutLines.push(args.map(String).join(" "));
+    };
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      requests.push({ method: init?.method ?? "GET", url });
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+    try {
+      const outputPath = join(tempRoot, "review.md");
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com",
+        "t",
+        outputPath,
+        { branch: "b", commit: "c" },
+        undefined,
+        true
+      );
+      await provider.postComment("review body", {
+        provider: "sourceCodeApi",
+        projectKey: "P",
+        repoName: "r",
+        prId: 3
+      });
+      expect(await readFile(outputPath, "utf8")).toBe("review body");
+      expect(requests.some((r) => r.method === "POST" && r.url.includes("/issues"))).toBe(true);
+      expect(stdoutLines).toEqual(["review body"]);
+    } finally {
+      globalThis.fetch = previousFetch;
+      console.log = previousLog;
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("postComment emit-all logs and continues when issues POST fails", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "sourcecode-pr-provider-"));
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response("unauthorized", { status: 401 })) as unknown as typeof fetch;
+    try {
+      const outputPath = join(tempRoot, "review.md");
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com",
+        "t",
+        outputPath,
+        { branch: "b", commit: "c" },
+        undefined,
+        true
+      );
+      await provider.postComment("- hi -", {
+        provider: "sourceCodeApi",
+        projectKey: "P",
+        repoName: "r",
+        prId: 3
+      });
+      expect(await readFile(outputPath, "utf8")).toBe("- hi -");
+    } finally {
+      globalThis.fetch = previousFetch;
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   test("postComment writes to output file when configured", async () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "sourcecode-pr-provider-"));
     try {
@@ -187,6 +261,129 @@ describe("SourceCodeApiPullRequestProvider", () => {
         prId: 1
       });
       expect(cookieSent).toBe("SESSIONID=abc; route=1");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("postComment merges bearer token into Cookie as ACCESS_TOKEN", async () => {
+    let cookieSent: string | undefined;
+    let authSent: string | undefined;
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const h = init?.headers;
+      if (h && typeof h === "object" && !(h instanceof Headers)) {
+        cookieSent = (h as Record<string, string>).Cookie;
+        authSent = (h as Record<string, string>).Authorization;
+      } else if (h instanceof Headers) {
+        cookieSent = h.get("Cookie") ?? undefined;
+        authSent = h.get("Authorization") ?? undefined;
+      }
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com/base",
+        "tok",
+        undefined,
+        { branch: "main", commit: "deadbeef" },
+        "SESSIONID=abc; route=1"
+      );
+      await provider.postComment("x", {
+        provider: "sourceCodeApi",
+        projectKey: "P",
+        repoName: "r",
+        prId: 1
+      });
+      expect(authSent).toBe("Bearer tok");
+      expect(cookieSent).toBe("SESSIONID=abc; route=1; ACCESS_TOKEN=tok");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("fetchDiff sends ACCESS_TOKEN cookie when only bearer token is set", async () => {
+    let cookieForDiff: string | undefined;
+    let authForDiff: string | undefined;
+    const diff = "diff --git a/a.ts b/a.ts\n+hello\n";
+    const encoded = Buffer.from(diff, "utf-8").toString("base64");
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/diff")) {
+        const h = init?.headers;
+        if (h && typeof h === "object" && !(h instanceof Headers)) {
+          cookieForDiff = (h as Record<string, string>).Cookie;
+          authForDiff = (h as Record<string, string>).Authorization;
+        } else if (h instanceof Headers) {
+          cookieForDiff = h.get("Cookie") ?? undefined;
+          authForDiff = h.get("Authorization") ?? undefined;
+        }
+        return new Response(JSON.stringify({ data: { content: encoded } }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider("https://scm.example.com", "bearer-only");
+      await provider.fetchDiff({
+        provider: "sourceCodeApi",
+        projectKey: "PROJ",
+        repoName: "repo",
+        prId: 42
+      });
+      expect(authForDiff).toBe("Bearer bearer-only");
+      expect(cookieForDiff).toBe("ACCESS_TOKEN=bearer-only");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("fetchDiff sets Bearer from ACCESS_TOKEN Set-Cookie paste when --token omitted", async () => {
+    let cookieForDiff: string | undefined;
+    let authForDiff: string | undefined;
+    const diff = "diff --git a/a.ts b/a.ts\n+hello\n";
+    const encoded = Buffer.from(diff, "utf-8").toString("base64");
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/diff")) {
+        const h = init?.headers;
+        if (h && typeof h === "object" && !(h instanceof Headers)) {
+          cookieForDiff = (h as Record<string, string>).Cookie;
+          authForDiff = (h as Record<string, string>).Authorization;
+        } else if (h instanceof Headers) {
+          cookieForDiff = h.get("Cookie") ?? undefined;
+          authForDiff = h.get("Authorization") ?? undefined;
+        }
+        return new Response(JSON.stringify({ data: { content: encoded } }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com",
+        undefined,
+        undefined,
+        undefined,
+        "ACCESS_TOKEN=jwt.one.two; Max-Age=1; Path=/; Secure"
+      );
+      await provider.fetchDiff({
+        provider: "sourceCodeApi",
+        projectKey: "PROJ",
+        repoName: "repo",
+        prId: 42
+      });
+      expect(authForDiff).toBe("Bearer jwt.one.two");
+      expect(cookieForDiff).toBe("ACCESS_TOKEN=jwt.one.two");
     } finally {
       globalThis.fetch = previousFetch;
     }

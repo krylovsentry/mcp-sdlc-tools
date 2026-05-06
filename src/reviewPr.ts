@@ -40,8 +40,10 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 	const qualitySeverityArg = parseArg(argv, "--quality-severity");
 	const token = parseArg(argv, "--token") ?? process.env.SOURCE_CODE_API_TOKEN;
 	const cookie = parseArg(argv, "--cookie") ?? process.env.SOURCE_CODE_API_COOKIE;
+	const emitAll = argv.includes("--emit-all");
 
 	const config = await loadConfig(configPath);
+	const emitAllEffective = emitAll || config.prReview?.emitAll === true;
 	const branch = branchArg ?? config.prReview?.qualityBranch;
 	const commit = commitArg ?? config.prReview?.qualityCommit;
 	const qualityPath = qualityPathArg ?? config.prReview?.qualityPath;
@@ -75,7 +77,7 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 		if (!baseUrl || !projectKey || !repoName || !prIdRaw) {
 			throw new Error(
 				"Missing sourceCodeApi args. Required: --base-url --project-key --repo-name --pr-id. " +
-					"Optional: --token (or SOURCE_CODE_API_TOKEN), --cookie (or SOURCE_CODE_API_COOKIE), --output, --branch, --commit, --quality-path, --quality-severity.",
+					"Optional: --token (or SOURCE_CODE_API_TOKEN), --cookie (or SOURCE_CODE_API_COOKIE), --output, --branch, --commit, --quality-path, --quality-severity, --emit-all.",
 			);
 		}
 		const prId = Number(prIdRaw);
@@ -94,9 +96,11 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 			outputPath,
 			qualityPost,
 			cookie,
+			emitAllEffective,
 		);
-		const outLabel =
-			outputPath ?? (qualityPost ? "rest-issues" : "stdout");
+		const outLabel = emitAllEffective
+			? `emit-all(file=${outputPath ? "yes" : "no"} issues=${qualityPost ? "yes" : "no"} stdout=yes)`
+			: (outputPath ?? (qualityPost ? "rest-issues" : "stdout"));
 		console.error(
 			`[review:pr] sourceCodeApi target=${baseUrl} project=${projectKey} repo=${repoName} prId=${prId} tokenProvided=${token ? "yes" : "no"} cookieProvided=${cookie ? "yes" : "no"} output=${outLabel}`,
 		);
@@ -124,7 +128,9 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 
 	const outputLabel =
 		providerName === "sourceCodeApi"
-			? outputPath ?? (qualityPost ? "rest-issues" : "stdout")
+			? emitAllEffective
+				? `emit-all(file=${outputPath ? "yes" : "no"} issues=${qualityPost ? "yes" : "no"} stdout=yes)`
+				: (outputPath ?? (qualityPost ? "rest-issues" : "stdout"))
 			: outputPath ?? "stdout";
 	console.error(
 		`[review:pr] llm=${config.model.provider} model=${config.model.modelName} prProvider=${providerName} output=${outputLabel}`,
