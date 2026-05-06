@@ -63,6 +63,14 @@ const prReviewConfigSchema = z.object({
   qualityPath: z.string().optional(),
   /** Issue severity in the Quality API payload (default `INFO`). */
   qualitySeverity: z.string().optional(),
+  /** Maps to POST .../issues body `repoTask.name` (default: `LLM PR review #<prId>`). */
+  qualityRepoTaskName: z.string().optional(),
+  /**
+   * HTTP Basic user for Source Code API requests (`Authorization: Basic`) when a gateway requires it
+   * together with `--token` / cookies (Bearer is then sent via `ACCESS_TOKEN` cookie when possible).
+   */
+  basicUser: z.string().optional(),
+  basicPassword: z.string().optional(),
   /**
    * When true with `review:pr` sourceCodeApi: write `--output` / `outputPath`, attempt issues POST when branch+commit are set,
    * and print the review body to stdout (file + API + IO). POST errors are logged to stderr and do not fail the command.

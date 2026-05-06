@@ -228,6 +228,41 @@ describe("SourceCodeApiPullRequestProvider", () => {
       expect(payload.commit).toBe("abc123def");
       expect(payload.pullRequestId).toBe(99);
       expect(payload.path).toBe("/p");
+      expect(payload.repoTask).toEqual({ name: "LLM PR review #99" });
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("postComment issues payload uses custom repoTask.name when set", async () => {
+    const requests: { body: string }[] = [];
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({
+        body: typeof init?.body === "string" ? init.body : ""
+      });
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com/base",
+        "tok",
+        undefined,
+        {
+          branch: "main",
+          commit: "abc",
+          repoTaskName: "Security scan follow-up"
+        }
+      );
+      await provider.postComment("note", {
+        provider: "sourceCodeApi",
+        projectKey: "P",
+        repoName: "r",
+        prId: 5
+      });
+      const payload = JSON.parse(requests[0].body) as Record<string, unknown>;
+      expect(payload.repoTask).toEqual({ name: "Security scan follow-up" });
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -384,6 +419,101 @@ describe("SourceCodeApiPullRequestProvider", () => {
       });
       expect(authForDiff).toBe("Bearer jwt.one.two");
       expect(cookieForDiff).toBe("ACCESS_TOKEN=jwt.one.two");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("fetchDiff sends Authorization Basic when basic user and password are set", async () => {
+    let authForDiff: string | undefined;
+    const diff = "diff --git a/a.ts b/a.ts\n+hello\n";
+    const encoded = Buffer.from(diff, "utf-8").toString("base64");
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/diff")) {
+        const h = init?.headers;
+        if (h && typeof h === "object" && !(h instanceof Headers)) {
+          authForDiff = (h as Record<string, string>).Authorization;
+        } else if (h instanceof Headers) {
+          authForDiff = h.get("Authorization") ?? undefined;
+        }
+        return new Response(JSON.stringify({ data: { content: encoded } }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const expected = `Basic ${Buffer.from("svcuser:secretpass", "utf-8").toString("base64")}`;
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "svcuser",
+        "secretpass"
+      );
+      await provider.fetchDiff({
+        provider: "sourceCodeApi",
+        projectKey: "PROJ",
+        repoName: "repo",
+        prId: 42
+      });
+      expect(authForDiff).toBe(expected);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("fetchDiff uses Basic Authorization and ACCESS_TOKEN cookie when basic and bearer are both set", async () => {
+    let authForDiff: string | undefined;
+    let cookieForDiff: string | undefined;
+    const diff = "d\n";
+    const encoded = Buffer.from(diff, "utf-8").toString("base64");
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/diff")) {
+        const h = init?.headers;
+        if (h && typeof h === "object" && !(h instanceof Headers)) {
+          authForDiff = (h as Record<string, string>).Authorization;
+          cookieForDiff = (h as Record<string, string>).Cookie;
+        } else if (h instanceof Headers) {
+          authForDiff = h.get("Authorization") ?? undefined;
+          cookieForDiff = h.get("Cookie") ?? undefined;
+        }
+        return new Response(JSON.stringify({ data: { content: encoded } }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com",
+        "jwt-here",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "basicU",
+        "basicP"
+      );
+      await provider.fetchDiff({
+        provider: "sourceCodeApi",
+        projectKey: "PROJ",
+        repoName: "repo",
+        prId: 42
+      });
+      expect(authForDiff).toBe(`Basic ${Buffer.from("basicU:basicP", "utf-8").toString("base64")}`);
+      expect(cookieForDiff).toBe("ACCESS_TOKEN=jwt-here");
     } finally {
       globalThis.fetch = previousFetch;
     }

@@ -124,7 +124,9 @@ bun run review:pr -- \
   --output ".artifacts/pr-review-last.md"
 ```
 
-You can add `--quality-path` / `--quality-severity` if your API expects them. Session-only cookies: merge into `SOURCE_CODE_API_COOKIE` (`SESSIONID=...; route=1; ...`) and keep `ACCESS_TOKEN=...` as needed.
+You can add `--quality-path` / `--quality-severity` / `--quality-repo-task-name` (maps to `repoTask.name` on POST `.../issues`; default name is `LLM PR review #<prId>`) if your API expects them. Session-only cookies: merge into `SOURCE_CODE_API_COOKIE` (`SESSIONID=...; route=1; ...`) and keep `ACCESS_TOKEN=...` as needed.
+
+For gateways that require **HTTP Basic**, use `--basic-user` and `--basic-password`, or env `SOURCE_CODE_API_BASIC_USER` / `SOURCE_CODE_API_BASIC_PASSWORD`, or `prReview.basicUser` / `basicPassword` in config. If you also pass a bearer JWT, the `Authorization` header is Basic and the JWT is still sent via the `ACCESS_TOKEN` cookie.
 
 ### Windows PowerShell
 

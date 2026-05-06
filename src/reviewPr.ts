@@ -38,16 +38,26 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 	const commitArg = parseArg(argv, "--commit");
 	const qualityPathArg = parseArg(argv, "--quality-path");
 	const qualitySeverityArg = parseArg(argv, "--quality-severity");
+	const qualityRepoTaskNameArg = parseArg(argv, "--quality-repo-task-name");
 	const token = parseArg(argv, "--token") ?? process.env.SOURCE_CODE_API_TOKEN;
 	const cookie = parseArg(argv, "--cookie") ?? process.env.SOURCE_CODE_API_COOKIE;
+	const basicUserArg = parseArg(argv, "--basic-user");
+	const basicPasswordArg = parseArg(argv, "--basic-password");
 	const emitAll = argv.includes("--emit-all");
 
 	const config = await loadConfig(configPath);
 	const emitAllEffective = emitAll || config.prReview?.emitAll === true;
+	const basicUserResolved =
+		(basicUserArg ?? config.prReview?.basicUser ?? process.env.SOURCE_CODE_API_BASIC_USER)?.trim() ||
+		undefined;
+	const basicPasswordResolved =
+		basicPasswordArg ?? config.prReview?.basicPassword ?? process.env.SOURCE_CODE_API_BASIC_PASSWORD;
 	const branch = branchArg ?? config.prReview?.qualityBranch;
 	const commit = commitArg ?? config.prReview?.qualityCommit;
 	const qualityPath = qualityPathArg ?? config.prReview?.qualityPath;
 	const qualitySeverity = qualitySeverityArg ?? config.prReview?.qualitySeverity;
+	const qualityRepoTaskName =
+		qualityRepoTaskNameArg ?? config.prReview?.qualityRepoTaskName;
 
 	if ((branch?.trim() && !commit?.trim()) || (!branch?.trim() && commit?.trim())) {
 		console.error(
@@ -62,6 +72,7 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 					commit: commit.trim(),
 					...(qualityPath?.trim() ? { path: qualityPath.trim() } : {}),
 					...(qualitySeverity?.trim() ? { severity: qualitySeverity.trim() } : {}),
+					...(qualityRepoTaskName?.trim() ? { repoTaskName: qualityRepoTaskName.trim() } : {}),
 				}
 			: undefined;
 	const llm =
@@ -77,7 +88,10 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 		if (!baseUrl || !projectKey || !repoName || !prIdRaw) {
 			throw new Error(
 				"Missing sourceCodeApi args. Required: --base-url --project-key --repo-name --pr-id. " +
-					"Optional: --token (or SOURCE_CODE_API_TOKEN), --cookie (or SOURCE_CODE_API_COOKIE), --output, --branch, --commit, --quality-path, --quality-severity, --emit-all.",
+					"Optional: --token (or SOURCE_CODE_API_TOKEN), --cookie (or SOURCE_CODE_API_COOKIE), " +
+					"--basic-user (or prReview.basicUser / SOURCE_CODE_API_BASIC_USER), " +
+					"--basic-password (or prReview.basicPassword / SOURCE_CODE_API_BASIC_PASSWORD), " +
+					"--output, --branch, --commit, --quality-path, --quality-severity, --quality-repo-task-name, --emit-all.",
 			);
 		}
 		const prId = Number(prIdRaw);
@@ -97,12 +111,15 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 			qualityPost,
 			cookie,
 			emitAllEffective,
+			basicUserResolved,
+			basicUserResolved ? (basicPasswordResolved ?? "") : undefined,
 		);
 		const outLabel = emitAllEffective
 			? `emit-all(file=${outputPath ? "yes" : "no"} issues=${qualityPost ? "yes" : "no"} stdout=yes)`
 			: (outputPath ?? (qualityPost ? "rest-issues" : "stdout"));
+		const basicLabel = basicUserResolved ? "yes" : "no";
 		console.error(
-			`[review:pr] sourceCodeApi target=${baseUrl} project=${projectKey} repo=${repoName} prId=${prId} tokenProvided=${token ? "yes" : "no"} cookieProvided=${cookie ? "yes" : "no"} output=${outLabel}`,
+			`[review:pr] sourceCodeApi target=${baseUrl} project=${projectKey} repo=${repoName} prId=${prId} tokenProvided=${token ? "yes" : "no"} cookieProvided=${cookie ? "yes" : "no"} basicProvided=${basicLabel} output=${outLabel}`,
 		);
 	} else {
 		let unifiedDiff: string;

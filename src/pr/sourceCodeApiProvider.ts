@@ -8,6 +8,8 @@ export type SourceCodeApiQualityPost = {
   commit: string;
   path?: string;
   severity?: string;
+  /** Body `repoTask.name` (API requires non-empty; default in provider: `LLM PR review #<prId>`). */
+  repoTaskName?: string;
 };
 
 type DiffResponse = {
@@ -127,7 +129,10 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
      * When true: write `outputPath` if set, attempt issues POST when `qualityPost` is set, then print body to stdout.
      * POST failures are logged and ignored so local file + stdout still succeed (e.g. 401 while debugging auth).
      */
-    private readonly emitAll?: boolean
+    private readonly emitAll?: boolean,
+    /** HTTP Basic (`Authorization: Basic`) when the gateway requires it alongside Bearer/cookies. */
+    private readonly basicUser?: string,
+    private readonly basicPassword?: string
   ) {}
 
   private applyAuthHeaders(headers: Record<string, string>): void {
@@ -138,8 +143,17 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
     const accessFromCookie = pairs.get(ACCESS_TOKEN_COOKIE)?.trim();
     const bearerRaw = tokenTrim || accessFromCookie;
 
-    if (bearerRaw) {
+    const basicUserTrim = this.basicUser?.trim();
+    const basicSecret = this.basicPassword ?? "";
+
+    if (basicUserTrim) {
+      const credentials = Buffer.from(`${basicUserTrim}:${basicSecret}`, "utf-8").toString("base64");
+      headers.Authorization = `Basic ${credentials}`;
+    } else if (bearerRaw) {
       headers.Authorization = `Bearer ${bearerRaw}`;
+    }
+
+    if (bearerRaw) {
       pairs.set(ACCESS_TOKEN_COOKIE, bearerRaw);
     }
 
@@ -220,13 +234,20 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
     const path = `/projects/${projectPath}/repos/${repoPath}/issues`;
     const url = joinUrl(this.baseUrl, path);
 
+    const taskName =
+      qc.repoTaskName?.trim() ||
+      `LLM PR review #${ref.prId}`;
+
     const payload: Record<string, unknown> = {
       branch: qc.branch,
       commit: qc.commit,
       pullRequestId: ref.prId,
       severity: qc.severity ?? "INFO",
       message: msg,
-      path: qc.path && qc.path.length > 0 ? qc.path : "/"
+      path: qc.path && qc.path.length > 0 ? qc.path : "/",
+      repoTask: {
+        name: taskName
+      }
     };
 
     const headers: Record<string, string> = {
