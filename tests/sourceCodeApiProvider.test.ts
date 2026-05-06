@@ -235,7 +235,7 @@ describe("SourceCodeApiPullRequestProvider", () => {
       expect(payload.commit).toBe("abc123def");
       expect(payload.pullRequestId).toBe(99);
       expect(payload.path).toBe("/p");
-      expect(payload.repoTask).toBeUndefined();
+      expect(payload.repoTask).toEqual(root.repoTask);
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -361,6 +361,7 @@ describe("SourceCodeApiPullRequestProvider", () => {
       const inner = root.data as Record<string, unknown>;
       expect(inner.pull_request_id).toBe(8);
       expect(inner.pullRequestId).toBeUndefined();
+      expect(inner.repo_task).toEqual(root.repo_task);
     } finally {
       globalThis.fetch = previousFetch;
       if (prev === undefined) {
@@ -406,7 +407,7 @@ describe("SourceCodeApiPullRequestProvider", () => {
         commit: "abc"
       });
       const payload = root.data as Record<string, unknown>;
-      expect(payload.repoTask).toBeUndefined();
+      expect(payload.repoTask).toEqual(root.repoTask);
       expect(payload.branch).toBe("main");
       expect(payload.commit).toBe("abc");
     } finally {

@@ -222,8 +222,9 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
 
   /**
    * POST /projects/{projectKey}/repos/{repoName}/issues (same OpenAPI v2 base as diff).
-   * Body layout (see env below): by default `{ "data": { branch, commit, … }, "repoTask": { name, branch, commit } }`
-   * — `repoTask` is a **sibling** of `data` because some gateways only bind nested task fields when structured this way.
+   * Body layout (see env below): by default `{ "data": { branch, …, repoTask }, "repoTask": { … } }`
+   * — `repoTask` is **inside** `data` (for APIs that deserialize only there) **and** repeated as a sibling of `data`
+   * (for gateways that bind task fields at the root).
    */
   private async postProjectRepoIssue(
     msg: string,
@@ -280,7 +281,8 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
     } else if (nestedInData) {
       payload = { data: { ...inner, [repoTaskKey]: repoTaskPayload } };
     } else {
-      payload = { data: inner, [repoTaskKey]: repoTaskPayload };
+      const wrapped = { ...inner, [repoTaskKey]: repoTaskPayload };
+      payload = { data: wrapped, [repoTaskKey]: repoTaskPayload };
     }
 
     const headers: Record<string, string> = {

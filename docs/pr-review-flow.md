@@ -124,9 +124,9 @@ bun run review:pr -- \
   --output ".artifacts/pr-review-last.md"
 ```
 
-The default issues POST body is **`{ "data": { branch, commit, pullRequestId, severity, message, path }, "repoTask": { name, branch, commit } }`** — `repoTask` is a **sibling** of `data` (not inside it), matching servers that bind task fields at the root. Task `branch` / `commit` match `--branch` / `--commit`; override the task title with `--quality-repo-task-name`.
+The default issues POST body includes **`repoTask`** **inside** `data` and **again** at the **root** next to `data` (same object twice), so servers that only read nested fields and gateways that bind `repoTask` at the root both see `name`, `branch`, and `commit`. Task `branch` / `commit` match `--branch` / `--commit`; override the task title with `--quality-repo-task-name`.
 
-Tuning (env): **`SOURCE_CODE_API_ISSUES_BODY=flat`** — single object, no `data` wrapper. **`SOURCE_CODE_API_ISSUES_LAYOUT=nested`** — put `repoTask` back inside `data` only. **`SOURCE_CODE_API_ISSUES_SNAKE=1`** — use `pull_request_id`, `repo_task`, etc. Session-only cookies: merge into `SOURCE_CODE_API_COOKIE` (`SESSIONID=...; route=1; ...`) and keep `ACCESS_TOKEN=...` as needed.
+Tuning (env): **`SOURCE_CODE_API_ISSUES_BODY=flat`** — single object, no `data` wrapper. **`SOURCE_CODE_API_ISSUES_LAYOUT=nested`** — `repoTask` only under `data` (no root-level copy). **`SOURCE_CODE_API_ISSUES_SNAKE=1`** — use `pull_request_id`, `repo_task`, etc. Session-only cookies: merge into `SOURCE_CODE_API_COOKIE` (`SESSIONID=...; route=1; ...`) and keep `ACCESS_TOKEN=...` as needed.
 
 For gateways that require **HTTP Basic**, use `--basic-user` and `--basic-password`, or env `SOURCE_CODE_API_BASIC_USER` / `SOURCE_CODE_API_BASIC_PASSWORD`, or `prReview.basicUser` / `basicPassword` in config. If you also pass a bearer JWT, the `Authorization` header is Basic and the JWT is still sent via the `ACCESS_TOKEN` cookie.
 
