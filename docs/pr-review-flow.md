@@ -124,7 +124,7 @@ bun run review:pr -- \
   --output ".artifacts/pr-review-last.md"
 ```
 
-The POST body uses the same **`{ "data": { … } }` envelope** as read endpoints (e.g. diff). A flat JSON body can yield `repoTask.name` validation errors because the server only reads the nested `data` object.
+The POST body uses the same **`{ "data": { … } }` envelope** as read endpoints (e.g. diff). A flat JSON body can yield `repoTask` validation errors because the server only reads the nested `data` object. Inside `data`, **`repoTask` includes `name`, `branch`, and `commit`** (branch/commit match the quality `--branch` / `--commit`); use `--quality-repo-task-name` to override `repoTask.name` only.
 
 If your server expects a **flat** JSON body (no `data` wrapper), set `SOURCE_CODE_API_ISSUES_BODY=flat`. Session-only cookies: merge into `SOURCE_CODE_API_COOKIE` (`SESSIONID=...; route=1; ...`) and keep `ACCESS_TOKEN=...` as needed.
 

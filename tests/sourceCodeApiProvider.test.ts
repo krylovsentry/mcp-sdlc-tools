@@ -239,7 +239,11 @@ describe("SourceCodeApiPullRequestProvider", () => {
       expect(payload.commit).toBe("abc123def");
       expect(payload.pullRequestId).toBe(99);
       expect(payload.path).toBe("/p");
-      expect(payload.repoTask).toEqual({ name: "LLM PR review #99" });
+      expect(payload.repoTask).toEqual({
+        name: "LLM PR review #99",
+        branch: "feat/x",
+        commit: "abc123def"
+      });
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -272,7 +276,11 @@ describe("SourceCodeApiPullRequestProvider", () => {
       });
       const root = JSON.parse(requests[0].body) as Record<string, unknown>;
       expect(root.data).toBeUndefined();
-      expect(root.repoTask).toEqual({ name: "LLM PR review #7" });
+      expect(root.repoTask).toEqual({
+        name: "LLM PR review #7",
+        branch: "main",
+        commit: "abc"
+      });
     } finally {
       globalThis.fetch = previousFetch;
       if (prev === undefined) {
@@ -313,7 +321,11 @@ describe("SourceCodeApiPullRequestProvider", () => {
       const root = JSON.parse(requests[0].body) as Record<string, unknown>;
       expect(root.data).toBeDefined();
       const payload = unwrapIssuesPostData(requests[0].body);
-      expect(payload.repoTask).toEqual({ name: "Security scan follow-up" });
+      expect(payload.repoTask).toEqual({
+        name: "Security scan follow-up",
+        branch: "main",
+        commit: "abc"
+      });
     } finally {
       globalThis.fetch = previousFetch;
     }

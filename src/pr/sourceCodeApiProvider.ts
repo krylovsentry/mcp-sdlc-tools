@@ -222,7 +222,7 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
 
   /**
    * POST /projects/{projectKey}/repos/{repoName}/issues (same OpenAPI v2 base as diff).
-   * Body: `{ "data": { branch, commit, pullRequestId, …, repoTask: { name } } }` (same `data` envelope as read endpoints).
+   * Body: `{ "data": { branch, commit, pullRequestId, …, repoTask: { name, branch, commit } } }` (same `data` envelope as read endpoints).
    */
   private async postProjectRepoIssue(
     msg: string,
@@ -247,7 +247,9 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
       message: msg,
       path: qc.path && qc.path.length > 0 ? qc.path : "/",
       repoTask: {
-        name: taskName
+        name: taskName,
+        branch: qc.branch,
+        commit: qc.commit
       }
     };
     const flat =
