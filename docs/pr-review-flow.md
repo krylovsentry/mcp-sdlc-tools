@@ -74,6 +74,58 @@ bun run review:pr -- --config config/servers.json --diff changes.diff
 
 Arguments after `--` are passed to the script (`--config`, `--diff`, etc.).
 
+### Source Code API v2: token/cookie + `--branch` / `--commit` (quality POST)
+
+Replace placeholders: `<JWT>`, head branch name, and full commit SHA. Values below match the v2 layout used in repo tests (`.../api/v2/projects/...`).
+
+**1 — Bearer token from env; fetch diff and POST review to `.../repos/.../issues` only (no local file)**
+
+```bash
+export SOURCE_CODE_API_TOKEN="<JWT>"
+bun run review:pr -- \
+  --provider sourceCodeApi \
+  --base-url "https://scm.example.com/app/sourcecode/api/api/v2" \
+  --project-key "ACME/platform" \
+  --repo-name "checkout-svc" \
+  --pr-id 42 \
+  --branch "feature/your-branch" \
+  --commit "0000000000000000000000000000000000000000"
+```
+
+**2 — Same auth + branch/commit, plus `--emit-all`: write markdown, POST review, print body on stdout**
+
+```bash
+export SOURCE_CODE_API_TOKEN="<JWT>"
+bun run review:pr -- \
+  --provider sourceCodeApi \
+  --emit-all \
+  --base-url "https://scm.example.com/app/sourcecode/api/api/v2" \
+  --project-key "ACME/platform" \
+  --repo-name "checkout-svc" \
+  --pr-id 42 \
+  --branch "feature/your-branch" \
+  --commit "0000000000000000000000000000000000000000" \
+  --output ".artifacts/pr-review-last.md"
+```
+
+**3 — Pasted browser / Keycloak `Set-Cookie` line in env (optional `--token` omitted); tool strips `Max-Age`, `Path`, etc., and also sends `Authorization: Bearer` from `ACCESS_TOKEN`**
+
+```bash
+export SOURCE_CODE_API_COOKIE='ACCESS_TOKEN=<JWT>; Max-Age=28744; Path=/; Secure; HttpOnly'
+bun run review:pr -- \
+  --provider sourceCodeApi \
+  --emit-all \
+  --base-url "https://scm.example.com/app/sourcecode/api/api/v2" \
+  --project-key "ACME/platform" \
+  --repo-name "checkout-svc" \
+  --pr-id 42 \
+  --branch "feature/your-branch" \
+  --commit "0000000000000000000000000000000000000000" \
+  --output ".artifacts/pr-review-last.md"
+```
+
+You can add `--quality-path` / `--quality-severity` if your API expects them. Session-only cookies: merge into `SOURCE_CODE_API_COOKIE` (`SESSIONID=...; route=1; ...`) and keep `ACCESS_TOKEN=...` as needed.
+
 ### Windows PowerShell
 
 Pipe works the same:

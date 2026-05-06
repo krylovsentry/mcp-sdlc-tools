@@ -399,19 +399,19 @@ describe("SourceCodeApiPullRequestProvider", () => {
 
     try {
       const provider = new SourceCodeApiPullRequestProvider(
-        "https://sfera-t1.ru/app/sourcecode/api/api/v2",
+        "https://scm.example.com/app/sourcecode/api/api/v2",
         "tok",
         undefined,
         { branch: "feat/x", commit: "abc" }
       );
       await provider.postComment("msg", {
         provider: "sourceCodeApi",
-        projectKey: "ENVHR/INSIDERS",
-        repoName: "insider-fe-svc",
-        prId: 110684
+        projectKey: "ACME/platform",
+        repoName: "checkout-svc",
+        prId: 42
       });
       expect(requestedUrl).toBe(
-        "https://sfera-t1.ru/app/sourcecode/api/api/v2/projects/ENVHR/INSIDERS/repos/insider-fe-svc/issues"
+        "https://scm.example.com/app/sourcecode/api/api/v2/projects/ACME/platform/repos/checkout-svc/issues"
       );
     } finally {
       globalThis.fetch = previousFetch;
