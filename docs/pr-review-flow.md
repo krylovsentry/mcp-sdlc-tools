@@ -124,7 +124,9 @@ bun run review:pr -- \
   --output ".artifacts/pr-review-last.md"
 ```
 
-You can add `--quality-path` / `--quality-severity` / `--quality-repo-task-name` (maps to `repoTask.name` on POST `.../issues`; default name is `LLM PR review #<prId>`) if your API expects them. Session-only cookies: merge into `SOURCE_CODE_API_COOKIE` (`SESSIONID=...; route=1; ...`) and keep `ACCESS_TOKEN=...` as needed.
+The POST body uses the same **`{ "data": { … } }` envelope** as read endpoints (e.g. diff). A flat JSON body can yield `repoTask.name` validation errors because the server only reads the nested `data` object.
+
+If your server expects a **flat** JSON body (no `data` wrapper), set `SOURCE_CODE_API_ISSUES_BODY=flat`. Session-only cookies: merge into `SOURCE_CODE_API_COOKIE` (`SESSIONID=...; route=1; ...`) and keep `ACCESS_TOKEN=...` as needed.
 
 For gateways that require **HTTP Basic**, use `--basic-user` and `--basic-password`, or env `SOURCE_CODE_API_BASIC_USER` / `SOURCE_CODE_API_BASIC_PASSWORD`, or `prReview.basicUser` / `basicPassword` in config. If you also pass a bearer JWT, the `Authorization` header is Basic and the JWT is still sent via the `ACCESS_TOKEN` cookie.
 

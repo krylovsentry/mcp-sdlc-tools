@@ -4,6 +4,15 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { SourceCodeApiPullRequestProvider, normalizeBrowserCookieInput } from "../src/pr/sourceCodeApiProvider";
 
+function unwrapIssuesPostData(raw: string): Record<string, unknown> {
+  const root = JSON.parse(raw) as Record<string, unknown>;
+  const data = root.data;
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    return data as Record<string, unknown>;
+  }
+  return root;
+}
+
 describe("SourceCodeApiPullRequestProvider", () => {
   test("normalizeBrowserCookieInput strips Set-Cookie attributes after first pair", () => {
     expect(normalizeBrowserCookieInput("ACCESS_TOKEN=a.b.c; Max-Age=28744; Path=/; Secure")).toBe(
@@ -221,7 +230,9 @@ describe("SourceCodeApiPullRequestProvider", () => {
       expect(requests[0].url).toBe(
         "https://scm.example.com/base/projects/ENV/X/repos/svc/issues"
       );
-      const payload = JSON.parse(requests[0].body) as Record<string, unknown>;
+      const root = JSON.parse(requests[0].body) as Record<string, unknown>;
+      expect(root.data).toBeDefined();
+      const payload = unwrapIssuesPostData(requests[0].body);
       expect(payload.message).toBe("hello review");
       expect(payload.severity).toBe("INFO");
       expect(payload.branch).toBe("feat/x");
@@ -231,6 +242,44 @@ describe("SourceCodeApiPullRequestProvider", () => {
       expect(payload.repoTask).toEqual({ name: "LLM PR review #99" });
     } finally {
       globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("postComment issues POST body is flat when SOURCE_CODE_API_ISSUES_BODY=flat", async () => {
+    const prev = process.env.SOURCE_CODE_API_ISSUES_BODY;
+    process.env.SOURCE_CODE_API_ISSUES_BODY = "flat";
+    const requests: { body: string }[] = [];
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({
+        body: typeof init?.body === "string" ? init.body : ""
+      });
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+
+    try {
+      const provider = new SourceCodeApiPullRequestProvider(
+        "https://scm.example.com/base",
+        "tok",
+        undefined,
+        { branch: "main", commit: "abc" }
+      );
+      await provider.postComment("x", {
+        provider: "sourceCodeApi",
+        projectKey: "P",
+        repoName: "r",
+        prId: 7
+      });
+      const root = JSON.parse(requests[0].body) as Record<string, unknown>;
+      expect(root.data).toBeUndefined();
+      expect(root.repoTask).toEqual({ name: "LLM PR review #7" });
+    } finally {
+      globalThis.fetch = previousFetch;
+      if (prev === undefined) {
+        delete process.env.SOURCE_CODE_API_ISSUES_BODY;
+      } else {
+        process.env.SOURCE_CODE_API_ISSUES_BODY = prev;
+      }
     }
   });
 
@@ -261,7 +310,9 @@ describe("SourceCodeApiPullRequestProvider", () => {
         repoName: "r",
         prId: 5
       });
-      const payload = JSON.parse(requests[0].body) as Record<string, unknown>;
+      const root = JSON.parse(requests[0].body) as Record<string, unknown>;
+      expect(root.data).toBeDefined();
+      const payload = unwrapIssuesPostData(requests[0].body);
       expect(payload.repoTask).toEqual({ name: "Security scan follow-up" });
     } finally {
       globalThis.fetch = previousFetch;

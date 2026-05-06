@@ -222,7 +222,7 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
 
   /**
    * POST /projects/{projectKey}/repos/{repoName}/issues (same OpenAPI v2 base as diff).
-   * Body shape follows common Source Code swagger; align field names with your spec if requests fail validation.
+   * Body: `{ "data": { branch, commit, pullRequestId, …, repoTask: { name } } }` (same `data` envelope as read endpoints).
    */
   private async postProjectRepoIssue(
     msg: string,
@@ -238,7 +238,8 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
       qc.repoTaskName?.trim() ||
       `LLM PR review #${ref.prId}`;
 
-    const payload: Record<string, unknown> = {
+    /** API mirrors response shape (`{ data: … }`); flat body leaves `repoTask` unset and `name` validates as empty. */
+    const data: Record<string, unknown> = {
       branch: qc.branch,
       commit: qc.commit,
       pullRequestId: ref.prId,
@@ -249,6 +250,9 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
         name: taskName
       }
     };
+    const flat =
+      process.env.SOURCE_CODE_API_ISSUES_BODY?.trim().toLowerCase() === "flat";
+    const payload = flat ? data : { data };
 
     const headers: Record<string, string> = {
       accept: "application/json",
