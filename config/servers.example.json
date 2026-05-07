@@ -36,6 +36,6 @@
     "requestTimeoutMs": 60000
   },
   "prReview": {
-    "outputPath": ".artifacts/pr-review-last.md"
+    "outputPath": "./.artifacts/pr-review-last.md"
   }
 }

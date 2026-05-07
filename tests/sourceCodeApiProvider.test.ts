@@ -223,11 +223,13 @@ describe("SourceCodeApiPullRequestProvider", () => {
       );
       const root = JSON.parse(requests[0].body) as Record<string, unknown>;
       expect(root.data).toBeDefined();
-      expect(root.repoTask).toEqual({
+      const expectTask = {
         name: "LLM PR review #99",
         branch: "feat/x",
         commit: "abc123def"
-      });
+      };
+      expect(root.repoTask).toEqual(expectTask);
+      expect(root.repo_task).toEqual(expectTask);
       const payload = root.data as Record<string, unknown>;
       expect(payload.message).toBe("hello review");
       expect(payload.severity).toBe("INFO");
@@ -235,7 +237,8 @@ describe("SourceCodeApiPullRequestProvider", () => {
       expect(payload.commit).toBe("abc123def");
       expect(payload.pullRequestId).toBe(99);
       expect(payload.path).toBe("/p");
-      expect(payload.repoTask).toEqual(root.repoTask);
+      expect(payload.repoTask).toEqual(expectTask);
+      expect(payload.repo_task).toEqual(expectTask);
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -268,11 +271,13 @@ describe("SourceCodeApiPullRequestProvider", () => {
       });
       const root = JSON.parse(requests[0].body) as Record<string, unknown>;
       expect(root.data).toBeUndefined();
-      expect(root.repoTask).toEqual({
+      const expectTask = {
         name: "LLM PR review #7",
         branch: "main",
         commit: "abc"
-      });
+      };
+      expect(root.repoTask).toEqual(expectTask);
+      expect(root.repo_task).toEqual(expectTask);
     } finally {
       globalThis.fetch = previousFetch;
       if (prev === undefined) {
@@ -311,11 +316,13 @@ describe("SourceCodeApiPullRequestProvider", () => {
       const root = JSON.parse(requests[0].body) as Record<string, unknown>;
       expect(root.repoTask).toBeUndefined();
       const inner = root.data as Record<string, unknown>;
-      expect(inner.repoTask).toEqual({
+      const expectTask = {
         name: "LLM PR review #2",
         branch: "b1",
         commit: "c1"
-      });
+      };
+      expect(inner.repoTask).toEqual(expectTask);
+      expect(inner.repo_task).toEqual(expectTask);
     } finally {
       globalThis.fetch = previousFetch;
       if (prev === undefined) {
@@ -361,6 +368,7 @@ describe("SourceCodeApiPullRequestProvider", () => {
       const inner = root.data as Record<string, unknown>;
       expect(inner.pull_request_id).toBe(8);
       expect(inner.pullRequestId).toBeUndefined();
+      expect(inner.repoTask).toBeUndefined();
       expect(inner.repo_task).toEqual(root.repo_task);
     } finally {
       globalThis.fetch = previousFetch;
@@ -401,13 +409,16 @@ describe("SourceCodeApiPullRequestProvider", () => {
       });
       const root = JSON.parse(requests[0].body) as Record<string, unknown>;
       expect(root.data).toBeDefined();
-      expect(root.repoTask).toEqual({
+      const expectTask = {
         name: "Security scan follow-up",
         branch: "main",
         commit: "abc"
-      });
+      };
+      expect(root.repoTask).toEqual(expectTask);
+      expect(root.repo_task).toEqual(expectTask);
       const payload = root.data as Record<string, unknown>;
-      expect(payload.repoTask).toEqual(root.repoTask);
+      expect(payload.repoTask).toEqual(expectTask);
+      expect(payload.repo_task).toEqual(expectTask);
       expect(payload.branch).toBe("main");
       expect(payload.commit).toBe("abc");
     } finally {

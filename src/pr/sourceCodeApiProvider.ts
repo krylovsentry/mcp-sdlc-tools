@@ -222,9 +222,9 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
 
   /**
    * POST /projects/{projectKey}/repos/{repoName}/issues (same OpenAPI v2 base as diff).
-   * Body layout (see env below): by default `{ "data": { branch, …, repoTask }, "repoTask": { … } }`
-   * — `repoTask` is **inside** `data` (for APIs that deserialize only there) **and** repeated as a sibling of `data`
-   * (for gateways that bind task fields at the root).
+   * Body layout (see env below): by default `data` carries quality fields plus **`repoTask` and `repo_task`**
+   * (same nested object) because some servers only bind snake_case JSON; the same pair is repeated at the **root**
+   * next to `data` for gateways that bind task fields there.
    */
   private async postProjectRepoIssue(
     msg: string,
@@ -273,16 +273,31 @@ export class SourceCodeApiPullRequestProvider implements PullRequestProvider {
       process.env.SOURCE_CODE_API_ISSUES_SNAKE?.trim().toLowerCase() === "true";
 
     const inner = snake ? innerSnake : innerCam;
-    const repoTaskKey = snake ? "repo_task" : "repoTask";
+
+    /**
+     * Some gateways only bind `repo_task` (snake JSON) while validation errors still say `repoTask`.
+     * When not in full-snake mode, send both keys with the same task shape.
+     */
+    const repoTaskEnvelope = (): Record<string, unknown> => {
+      if (snake) {
+        return { repo_task: { ...repoTaskPayload } };
+      }
+      return {
+        repoTask: { ...repoTaskPayload },
+        repo_task: { ...repoTaskPayload }
+      };
+    };
+
+    const envelope = repoTaskEnvelope();
 
     let payload: Record<string, unknown>;
     if (flat) {
-      payload = { ...inner, [repoTaskKey]: repoTaskPayload };
+      payload = { ...inner, ...envelope };
     } else if (nestedInData) {
-      payload = { data: { ...inner, [repoTaskKey]: repoTaskPayload } };
+      payload = { data: { ...inner, ...envelope } };
     } else {
-      const wrapped = { ...inner, [repoTaskKey]: repoTaskPayload };
-      payload = { data: wrapped, [repoTaskKey]: repoTaskPayload };
+      const wrapped = { ...inner, ...envelope };
+      payload = { data: wrapped, ...envelope };
     }
 
     const headers: Record<string, string> = {

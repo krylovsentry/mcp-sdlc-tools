@@ -52,6 +52,7 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 		undefined;
 	const basicPasswordResolved =
 		basicPasswordArg ?? config.prReview?.basicPassword ?? process.env.SOURCE_CODE_API_BASIC_PASSWORD;
+	const authProvided = Boolean(token?.trim() || cookie?.trim() || basicUserResolved);
 	const branch = branchArg ?? config.prReview?.qualityBranch;
 	const commit = commitArg ?? config.prReview?.qualityCommit;
 	const qualityPath = qualityPathArg ?? config.prReview?.qualityPath;
@@ -88,9 +89,9 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 		if (!baseUrl || !projectKey || !repoName || !prIdRaw) {
 			throw new Error(
 				"Missing sourceCodeApi args. Required: --base-url --project-key --repo-name --pr-id. " +
-					"Optional: --token (or SOURCE_CODE_API_TOKEN), --cookie (or SOURCE_CODE_API_COOKIE), " +
-					"--basic-user (or prReview.basicUser / SOURCE_CODE_API_BASIC_USER), " +
-					"--basic-password (or prReview.basicPassword / SOURCE_CODE_API_BASIC_PASSWORD), " +
+					"Optional auth: --basic-user/--basic-password, --token, or --cookie " +
+					"(or env SOURCE_CODE_API_BASIC_USER/SOURCE_CODE_API_BASIC_PASSWORD, SOURCE_CODE_API_TOKEN, SOURCE_CODE_API_COOKIE). " +
+					"Config auth: prReview.basicUser / prReview.basicPassword. " +
 					"--output, --branch, --commit, --quality-path, --quality-severity, --quality-repo-task-name, --emit-all.",
 			);
 		}
@@ -118,6 +119,11 @@ export async function runReviewPr(forwardedArgv: string[]): Promise<void> {
 			? `emit-all(file=${outputPath ? "yes" : "no"} issues=${qualityPost ? "yes" : "no"} stdout=yes)`
 			: (outputPath ?? (qualityPost ? "rest-issues" : "stdout"));
 		const basicLabel = basicUserResolved ? "yes" : "no";
+		if (!authProvided) {
+			console.error(
+				"[review:pr] sourceCodeApi auth warning: no basic-user, token, or cookie was provided",
+			);
+		}
 		console.error(
 			`[review:pr] sourceCodeApi target=${baseUrl} project=${projectKey} repo=${repoName} prId=${prId} tokenProvided=${token ? "yes" : "no"} cookieProvided=${cookie ? "yes" : "no"} basicProvided=${basicLabel} output=${outLabel}`,
 		);

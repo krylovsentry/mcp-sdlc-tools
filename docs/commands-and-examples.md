@@ -1,17 +1,17 @@
 # Commands and examples
 
-Copy-paste examples for common tasks. Configure the model and MCP servers in `config/servers.json` first (see [`config/servers.example.json`](../config/servers.example.json)).
+Copy-paste examples for common tasks. Configure the model and MCP servers in `./config/servers.json` first (see [`config/servers.example.json`](../config/servers.example.json)).
 
 ## Setup
 
 ```bash
 bun install
-cp config/servers.example.json config/servers.json
-# Windows (cmd):  copy config\servers.example.json config\servers.json
-# Windows (PowerShell): Copy-Item config\servers.example.json config\servers.json
+cp ./config/servers.example.json ./config/servers.json
+# Windows (cmd):  copy .\config\servers.example.json .\config\servers.json
+# Windows (PowerShell): Copy-Item .\config\servers.example.json .\config\servers.json
 ```
 
-Edit `config/servers.json`: model `baseUrl`, `modelName`, API keys, and MCP server `command` / `args`.
+Edit `./config/servers.json`: model `baseUrl`, `modelName`, API keys, and MCP server `command` / `args`.
 
 ## Run the MCP agent (tools + model)
 
@@ -22,7 +22,7 @@ bun run start --prompt "Open a page and summarize the title"
 Custom config file:
 
 ```bash
-bun run start --config config/servers.json --prompt "Your prompt here"
+bun run start --config ./config/servers.json --prompt "Your prompt here"
 ```
 
 ## Smoke-check MCP servers
@@ -160,8 +160,8 @@ bun run model:test -- --cases prompts/model-test-cases.json
 No MCP tools; sends a unified diff to the model. Full options: [pr-review-flow.md](pr-review-flow.md).
 
 ```bash
-bun run review:pr -- --diff path/to/changes.diff
-bun run review:pr -- --diff changes.diff --output review.md --title "feat: add widget"
+bun run review:pr -- --diff ./changes.diff
+bun run review:pr -- --diff ./changes.diff --output ./review.md --title "feat: add widget"
 git diff main...HEAD | bun run review:pr --
 ```
 
@@ -188,7 +188,7 @@ bun run dev:debug:agent -- --prompt "Hello"
 bun run dev:debug:smoke
 bun run dev:debug:generate
 bun run dev:debug:model:test
-bun run dev:debug:review -- --diff path/to/changes.diff
+bun run dev:debug:review -- --diff ./changes.diff
 ```
 
 **Manual env** (Unix / Git Bash):

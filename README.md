@@ -16,8 +16,8 @@ Bun-based local framework that:
 ## Configure
 
 1. Install dependencies: `bun install`
-2. Copy config: `cp config/servers.example.json config/servers.json` (on Windows: `copy config\servers.example.json config\servers.json`)
-3. Edit `config/servers.json`: model endpoint, API keys, and MCP server commands.
+2. Copy config: `cp ./config/servers.example.json ./config/servers.json` (on Windows: `copy .\config\servers.example.json .\config\servers.json`)
+3. Edit `./config/servers.json`: model endpoint, API keys, and MCP server commands.
 
 See [config/servers.example.json](config/servers.example.json) and the **Model providers** section below.
 
@@ -48,7 +48,7 @@ The repo ships **committed runner packages** under [`templates/testing/`](templa
 | 1. Scaffold | `bun run scaffold:testing` |
 | 2. Install runners | `bun install --cwd testing/playwright` and `bun install --cwd testing/postman` (or `cd` into each and `bun install`) |
 | 3. (First time) Playwright browsers | `bunx playwright install` with cwd `testing/playwright`, or rely on Playwright’s install hints when you first run tests |
-| 4. Generate tests | `bun run generate:tests` (uses [`prompts/generate-tests-autonomous.txt`](prompts/generate-tests-autonomous.txt) and your `config/servers.json` model) |
+| 4. Generate tests | `bun run generate:tests` (uses [`prompts/generate-tests-autonomous.txt`](prompts/generate-tests-autonomous.txt) and your `./config/servers.json` model) |
 | 5. Run tests | `bun run test:playwright` and `bun run test:postman` |
 
 Useful flags for generation:
@@ -99,7 +99,7 @@ bun run model:test -- --cases prompts/model-test-cases.json
 Sends a unified diff to the model; prints or writes a review. Details: [docs/pr-review-flow.md](docs/pr-review-flow.md).
 
 ```bash
-bun run review:pr -- --diff path/to/changes.diff
+bun run review:pr -- --diff ./changes.diff
 git diff main...HEAD | bun run review:pr --
 ```
 
@@ -112,14 +112,15 @@ bun run review:pr -- \
   --project-key PROJECT \
   --repo-name my-repo \
   --pr-id 42 \
-  --token "$SOURCE_CODE_API_TOKEN" \
+  --basic-user "$SOURCE_CODE_API_BASIC_USER" \
+  --basic-password "$SOURCE_CODE_API_BASIC_PASSWORD" \
   --title "PR #42"
 ```
 
 Linux / macOS with debug tracing:
 
 ```bash
-DEV_TRACE=1 MODEL_TRACE=1 SOURCE_CODE_API_TOKEN="your-token" \
+DEV_TRACE=1 MODEL_TRACE=1 SOURCE_CODE_API_BASIC_USER="gateway-user" SOURCE_CODE_API_BASIC_PASSWORD="gateway-pass" \
 bun run review:pr -- \
   --provider sourceCodeApi \
   --base-url https://scm.example.com/api/v2 \
@@ -127,7 +128,7 @@ bun run review:pr -- \
   --repo-name my-repo \
   --pr-id 42 \
   --title "PR #42" \
-  --output /tmp/pr-review.md
+  --output ./pr-review.md
 ```
 
 Windows PowerShell with debug tracing:
@@ -135,7 +136,8 @@ Windows PowerShell with debug tracing:
 ```powershell
 $env:DEV_TRACE="1"
 $env:MODEL_TRACE="1"
-$env:SOURCE_CODE_API_TOKEN="your-token"
+$env:SOURCE_CODE_API_BASIC_USER="gateway-user"
+$env:SOURCE_CODE_API_BASIC_PASSWORD="gateway-pass"
 bun run review:pr -- `
   --provider sourceCodeApi `
   --base-url https://scm.example.com/api/v2 `
@@ -143,7 +145,7 @@ bun run review:pr -- `
   --repo-name my-repo `
   --pr-id 42 `
   --title "PR #42" `
-  --output "$env:TEMP\pr-review.md"
+  --output ".\pr-review.md"
 ```
 
 ## CLI reference (npm scripts)
@@ -173,7 +175,7 @@ Pass arguments after `--`, for example: `bun run dev:debug:agent -- --prompt "He
 - `openaiCompat`: uses `POST {baseUrl}/v1/chat/completions`
 - `ollama`: uses `POST {baseUrl}/api/chat`
 
-Capability flags in `config/servers.json`:
+Capability flags in `./config/servers.json`:
 
 - `model.tools`: enable or disable MCP tool calls (`true` / `false`)
 - Deprecated alias: `model.supportsTools` — used only if `tools` is omitted; if both are set, **`tools` wins**
@@ -181,8 +183,8 @@ Capability flags in `config/servers.json`:
 
 ### Ollama examples
 
-- Local: `cp config/servers.ollama-local.example.json config/servers.json`
-- Cloud: `cp config/servers.ollama-cloud.example.json config/servers.json`, set `model.baseUrl`, then `cp .secrets/api-keys.example.json .secrets/api-keys.json` and add your key
+- Local: `cp ./config/servers.ollama-local.example.json ./config/servers.json`
+- Cloud: `cp ./config/servers.ollama-cloud.example.json ./config/servers.json`, set `model.baseUrl`, then `cp ./.secrets/api-keys.example.json ./.secrets/api-keys.json` and add your key
 
 Switch provider:
 
